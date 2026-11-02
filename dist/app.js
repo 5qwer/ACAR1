@@ -4626,6 +4626,7 @@
       pendingSync = null;
     } else if (syncBox && !syncBusy && $('#syncStateText') && $('#syncStateText').textContent.indexOf('آخر رفع') !== 0) {
       syncSetState('', 'المزامنة جاهزة — تقدر ترفع نسخة أو تفحص الدرايف');
+      try { loadSyncFolder(); } catch (eLF) {}
       startSyncTimers();
       if (!driveSyncStarted) { driveSyncStarted = true; setTimeout(function () { syncCheck(true); }, 800); }
     }
@@ -5446,6 +5447,11 @@
 
   function loadSyncFolder() {
     var localUrl = localFolderUrl();
+    /* غير مربوط: نعرض الفولدر المحفوظ محلياً فقط — بدون طلب سيرفر (كان بيرجّع 503) */
+    if (!driveState.connected) {
+      if (localUrl) showCustomFolder(localUrl);
+      return Promise.resolve();
+    }
     if (typeof fetch !== 'function') {
       if (localUrl) showCustomFolder(localUrl);
       return Promise.resolve();

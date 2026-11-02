@@ -1842,6 +1842,10 @@ window.__retryAsset = function (el, name) {
           return r.json().catch(function () { return {}; });
         })
         .then(function (s) {
+          try {
+            if (s && s.connected) localStorage.setItem('app_drive_conn', '1');
+            else localStorage.removeItem('app_drive_conn');
+          } catch (eC) {}
           if (s && s.connected && gate) { gate.style.display = 'none'; return; }
           if (s && s.configured === false) {
             var miss = (s.missing && s.missing.length) ? s.missing.join('، ') : 'Client ID، Client Secret';
@@ -1863,6 +1867,17 @@ window.__retryAsset = function (el, name) {
           }
         })
         .catch(function (err) {
+          /* لو الربط كان ناجح قبل كده والاستضافة ردّت بخطأ مؤقت: منقفلش التطبيق،
+             نكمل بالوضع المحفوظ ونتحقق بهدوء بعد شوية. */
+          var wasConnected = false;
+          try { wasConnected = localStorage.getItem('app_drive_conn') === '1'; } catch (eW) {}
+          if (wasConnected && gate) {
+            gate.style.display = 'none';
+            var r2 = document.getElementById('gateRetry');
+            if (r2) r2.style.display = 'none';
+            setTimeout(checkGate, 4000);
+            return;
+          }
           gateStatusError('تعذّر التحقق من حالة الربط (' + (err && err.message ? err.message : 'خطأ') +
             ') — البيانات محفوظة، اضغط «إعادة المحاولة».');
         });
