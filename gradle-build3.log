@@ -1,0 +1,111 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.7/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preWeakReleaseBuild UP-TO-DATE
+> Task :app:javaPreCompileWeakRelease UP-TO-DATE
+> Task :app:checkWeakReleaseAarMetadata UP-TO-DATE
+> Task :app:generateWeakReleaseResValues UP-TO-DATE
+> Task :app:mapWeakReleaseSourceSetPaths UP-TO-DATE
+> Task :app:generateWeakReleaseResources UP-TO-DATE
+> Task :app:mergeWeakReleaseResources UP-TO-DATE
+> Task :app:packageWeakReleaseResources UP-TO-DATE
+> Task :app:parseWeakReleaseLocalResources UP-TO-DATE
+> Task :app:createWeakReleaseCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksWeakRelease UP-TO-DATE
+> Task :app:processWeakReleaseMainManifest UP-TO-DATE
+> Task :app:processWeakReleaseManifest UP-TO-DATE
+> Task :app:processWeakReleaseManifestForPackage UP-TO-DATE
+> Task :app:processWeakReleaseResources UP-TO-DATE
+> Task :app:compileWeakReleaseJavaWithJavac UP-TO-DATE
+> Task :app:extractProguardFiles UP-TO-DATE
+> Task :app:generateWeakReleaseLintVitalReportModel
+> Task :app:mergeWeakReleaseJniLibFolders UP-TO-DATE
+> Task :app:mergeWeakReleaseNativeLibs NO-SOURCE
+> Task :app:stripWeakReleaseDebugSymbols NO-SOURCE
+> Task :app:extractWeakReleaseNativeSymbolTables NO-SOURCE
+> Task :app:mergeWeakReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:checkWeakReleaseDuplicateClasses UP-TO-DATE
+> Task :app:mergeWeakReleaseArtProfile UP-TO-DATE
+> Task :app:expandWeakReleaseArtProfileWildcards UP-TO-DATE
+> Task :app:mergeWeakReleaseGeneratedProguardFiles UP-TO-DATE
+> Task :app:processWeakReleaseJavaRes NO-SOURCE
+> Task :app:mergeWeakReleaseJavaResource UP-TO-DATE
+> Task :app:mergeWeakReleaseStartupProfile UP-TO-DATE
+> Task :app:minifyWeakReleaseWithR8 UP-TO-DATE
+> Task :app:compileWeakReleaseArtProfile UP-TO-DATE
+> Task :app:mergeWeakReleaseShaders UP-TO-DATE
+> Task :app:compileWeakReleaseShaders NO-SOURCE
+> Task :app:generateWeakReleaseAssets UP-TO-DATE
+> Task :app:mergeWeakReleaseAssets
+> Task :app:extractWeakReleaseVersionControlInfo UP-TO-DATE
+> Task :app:processApplicationManifestWeakReleaseForBundle UP-TO-DATE
+> Task :app:bundleWeakReleaseResources UP-TO-DATE
+> Task :app:shrinkWeakReleaseRes UP-TO-DATE
+> Task :app:compressWeakReleaseAssets
+> Task :app:optimizeWeakReleaseResources UP-TO-DATE
+> Task :app:collectWeakReleaseDependencies UP-TO-DATE
+> Task :app:sdkWeakReleaseDependencyData UP-TO-DATE
+> Task :app:validateSigningWeakRelease UP-TO-DATE
+> Task :app:writeWeakReleaseAppMetadata UP-TO-DATE
+> Task :app:writeWeakReleaseSigningConfigVersions UP-TO-DATE
+> Task :app:preStrongReleaseBuild UP-TO-DATE
+> Task :app:javaPreCompileStrongRelease UP-TO-DATE
+> Task :app:checkStrongReleaseAarMetadata UP-TO-DATE
+> Task :app:generateStrongReleaseResValues UP-TO-DATE
+> Task :app:mapStrongReleaseSourceSetPaths UP-TO-DATE
+> Task :app:generateStrongReleaseResources UP-TO-DATE
+> Task :app:mergeStrongReleaseResources UP-TO-DATE
+> Task :app:packageStrongReleaseResources UP-TO-DATE
+> Task :app:parseStrongReleaseLocalResources UP-TO-DATE
+> Task :app:createStrongReleaseCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksStrongRelease UP-TO-DATE
+> Task :app:processStrongReleaseMainManifest UP-TO-DATE
+> Task :app:processStrongReleaseManifest UP-TO-DATE
+> Task :app:processStrongReleaseManifestForPackage UP-TO-DATE
+> Task :app:processStrongReleaseResources UP-TO-DATE
+> Task :app:compileStrongReleaseJavaWithJavac UP-TO-DATE
+> Task :app:generateStrongReleaseLintVitalReportModel
+> Task :app:mergeStrongReleaseJniLibFolders UP-TO-DATE
+> Task :app:mergeStrongReleaseNativeLibs NO-SOURCE
+> Task :app:stripStrongReleaseDebugSymbols NO-SOURCE
+> Task :app:extractStrongReleaseNativeSymbolTables NO-SOURCE
+> Task :app:mergeStrongReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:checkStrongReleaseDuplicateClasses UP-TO-DATE
+> Task :app:mergeStrongReleaseArtProfile UP-TO-DATE
+> Task :app:expandStrongReleaseArtProfileWildcards UP-TO-DATE
+> Task :app:mergeStrongReleaseGeneratedProguardFiles UP-TO-DATE
+> Task :app:processStrongReleaseJavaRes NO-SOURCE
+> Task :app:mergeStrongReleaseJavaResource UP-TO-DATE
+> Task :app:mergeStrongReleaseStartupProfile UP-TO-DATE
+> Task :app:minifyStrongReleaseWithR8 UP-TO-DATE
+> Task :app:compileStrongReleaseArtProfile UP-TO-DATE
+> Task :app:mergeStrongReleaseShaders UP-TO-DATE
+> Task :app:compileStrongReleaseShaders NO-SOURCE
+> Task :app:generateStrongReleaseAssets UP-TO-DATE
+> Task :app:mergeStrongReleaseAssets
+> Task :app:extractStrongReleaseVersionControlInfo UP-TO-DATE
+> Task :app:processApplicationManifestStrongReleaseForBundle UP-TO-DATE
+> Task :app:compressStrongReleaseAssets
+> Task :app:bundleStrongReleaseResources UP-TO-DATE
+> Task :app:shrinkStrongReleaseRes UP-TO-DATE
+> Task :app:packageWeakRelease
+> Task :app:createWeakReleaseApkListingFileRedirect UP-TO-DATE
+> Task :app:optimizeStrongReleaseResources UP-TO-DATE
+> Task :app:collectStrongReleaseDependencies UP-TO-DATE
+> Task :app:sdkStrongReleaseDependencyData UP-TO-DATE
+> Task :app:validateSigningStrongRelease UP-TO-DATE
+> Task :app:writeStrongReleaseAppMetadata UP-TO-DATE
+> Task :app:writeStrongReleaseSigningConfigVersions UP-TO-DATE
+> Task :app:packageStrongRelease
+> Task :app:createStrongReleaseApkListingFileRedirect UP-TO-DATE
+> Task :app:lintVitalAnalyzeWeakRelease
+> Task :app:lintVitalAnalyzeStrongRelease
+> Task :app:lintVitalReportWeakRelease UP-TO-DATE
+> Task :app:lintVitalWeakRelease
+> Task :app:assembleWeakRelease
+> Task :app:lintVitalReportStrongRelease UP-TO-DATE
+> Task :app:lintVitalStrongRelease
+> Task :app:assembleStrongRelease
+
+BUILD SUCCESSFUL in 26s
+87 actionable tasks: 12 executed, 75 up-to-date

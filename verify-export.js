@@ -91,12 +91,12 @@ const legacySheet = {
 };
 
 const xlsx = Kit.buildXlsx([sheet, ledgerSheet, legacySheet]);
-fs.writeFileSync('/tmp/export-verify.xlsx', Buffer.from(xlsx));
+fs.writeFileSync(path.join(require('os').tmpdir(), 'export-verify.xlsx'), Buffer.from(xlsx));
 console.log('xlsx bytes:', xlsx.length);
 
 const pdf = Kit.reportToPdf(report);
 if (!pdf) { console.error('PDF FAILED'); process.exit(1); }
-fs.writeFileSync('/tmp/export-verify.pdf', Buffer.from(pdf));
+fs.writeFileSync(path.join(require('os').tmpdir(), 'export-verify.pdf'), Buffer.from(pdf));
 console.log('pdf bytes:', pdf.length, 'header:', Buffer.from(pdf.slice(0, 5)).toString());
 
 const pages = Kit.drawReportPages(report);

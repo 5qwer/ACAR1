@@ -1,0 +1,131 @@
+Downloading https://services.gradle.org/distributions/gradle-8.7-bin.zip
+............10%.............20%.............30%.............40%............50%.............60%.............70%.............80%.............90%............100%
+
+Welcome to Gradle 8.7!
+
+Here are the highlights of this release:
+ - Compiling and testing with Java 22
+ - Cacheable Groovy script compilation
+ - New methods in lazy collection properties
+
+For more details see https://docs.gradle.org/8.7/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.7/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preWeakReleaseBuild UP-TO-DATE
+> Task :app:javaPreCompileWeakRelease
+> Task :app:checkWeakReleaseAarMetadata
+> Task :app:generateWeakReleaseResValues
+> Task :app:mapWeakReleaseSourceSetPaths
+> Task :app:generateWeakReleaseResources
+> Task :app:packageWeakReleaseResources
+> Task :app:mergeWeakReleaseResources
+> Task :app:createWeakReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksWeakRelease
+> Task :app:parseWeakReleaseLocalResources
+> Task :app:processWeakReleaseMainManifest
+> Task :app:processWeakReleaseManifest
+> Task :app:extractProguardFiles
+> Task :app:mergeWeakReleaseJniLibFolders
+> Task :app:mergeWeakReleaseNativeLibs NO-SOURCE
+> Task :app:stripWeakReleaseDebugSymbols NO-SOURCE
+> Task :app:extractWeakReleaseNativeSymbolTables NO-SOURCE
+> Task :app:mergeWeakReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:processWeakReleaseManifestForPackage
+> Task :app:checkWeakReleaseDuplicateClasses
+> Task :app:processWeakReleaseJavaRes NO-SOURCE
+> Task :app:mergeWeakReleaseArtProfile
+> Task :app:mergeWeakReleaseStartupProfile
+> Task :app:mergeWeakReleaseShaders
+> Task :app:compileWeakReleaseShaders NO-SOURCE
+> Task :app:generateWeakReleaseAssets UP-TO-DATE
+> Task :app:mergeWeakReleaseJavaResource
+> Task :app:mergeWeakReleaseAssets
+> Task :app:compressWeakReleaseAssets
+> Task :app:extractWeakReleaseVersionControlInfo
+> Task :app:processApplicationManifestWeakReleaseForBundle
+> Task :app:collectWeakReleaseDependencies
+> Task :app:sdkWeakReleaseDependencyData
+> Task :app:validateSigningWeakRelease
+> Task :app:writeWeakReleaseAppMetadata
+> Task :app:writeWeakReleaseSigningConfigVersions
+> Task :app:preStrongReleaseBuild UP-TO-DATE
+> Task :app:javaPreCompileStrongRelease
+> Task :app:checkStrongReleaseAarMetadata
+> Task :app:generateStrongReleaseResValues
+> Task :app:mapStrongReleaseSourceSetPaths
+> Task :app:generateStrongReleaseResources
+> Task :app:mergeStrongReleaseResources
+> Task :app:packageStrongReleaseResources
+> Task :app:parseStrongReleaseLocalResources
+> Task :app:createStrongReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksStrongRelease
+> Task :app:processStrongReleaseMainManifest
+> Task :app:processStrongReleaseManifest
+> Task :app:mergeStrongReleaseJniLibFolders
+> Task :app:mergeStrongReleaseNativeLibs NO-SOURCE
+> Task :app:stripStrongReleaseDebugSymbols NO-SOURCE
+> Task :app:extractStrongReleaseNativeSymbolTables NO-SOURCE
+> Task :app:mergeStrongReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:checkStrongReleaseDuplicateClasses
+> Task :app:mergeStrongReleaseArtProfile
+> Task :app:processStrongReleaseJavaRes NO-SOURCE
+> Task :app:mergeStrongReleaseJavaResource
+> Task :app:mergeStrongReleaseStartupProfile
+> Task :app:mergeStrongReleaseShaders
+> Task :app:compileStrongReleaseShaders NO-SOURCE
+> Task :app:generateStrongReleaseAssets UP-TO-DATE
+> Task :app:mergeStrongReleaseAssets
+> Task :app:extractStrongReleaseVersionControlInfo
+> Task :app:compressStrongReleaseAssets
+> Task :app:processApplicationManifestStrongReleaseForBundle
+> Task :app:collectStrongReleaseDependencies
+> Task :app:sdkStrongReleaseDependencyData
+> Task :app:validateSigningStrongRelease
+> Task :app:writeStrongReleaseAppMetadata
+> Task :app:writeStrongReleaseSigningConfigVersions
+> Task :app:processStrongReleaseManifestForPackage
+> Task :app:processStrongReleaseResources
+> Task :app:processWeakReleaseResources
+
+> Task :app:compileWeakReleaseJavaWithJavac
+Note: C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\android\app\src\main\java\com\amw\nizam\MainActivity.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+
+> Task :app:generateWeakReleaseLintVitalReportModel
+> Task :app:lintVitalAnalyzeWeakRelease
+> Task :app:expandWeakReleaseArtProfileWildcards
+> Task :app:mergeWeakReleaseGeneratedProguardFiles
+
+> Task :app:compileStrongReleaseJavaWithJavac
+Note: C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\android\app\src\main\java\com\amw\nizam\MainActivity.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+
+> Task :app:generateStrongReleaseLintVitalReportModel
+> Task :app:expandStrongReleaseArtProfileWildcards
+> Task :app:mergeStrongReleaseGeneratedProguardFiles
+> Task :app:bundleWeakReleaseResources
+> Task :app:bundleStrongReleaseResources
+> Task :app:minifyWeakReleaseWithR8
+> Task :app:compileWeakReleaseArtProfile
+> Task :app:shrinkWeakReleaseRes
+> Task :app:optimizeWeakReleaseResources
+> Task :app:packageWeakRelease
+> Task :app:createWeakReleaseApkListingFileRedirect
+> Task :app:minifyStrongReleaseWithR8
+> Task :app:compileStrongReleaseArtProfile
+> Task :app:shrinkStrongReleaseRes
+> Task :app:optimizeStrongReleaseResources
+> Task :app:packageStrongRelease
+> Task :app:createStrongReleaseApkListingFileRedirect
+> Task :app:lintVitalAnalyzeStrongRelease
+> Task :app:lintVitalReportWeakRelease
+> Task :app:lintVitalWeakRelease
+> Task :app:assembleWeakRelease
+> Task :app:lintVitalReportStrongRelease
+> Task :app:lintVitalStrongRelease
+> Task :app:assembleStrongRelease
+
+BUILD SUCCESSFUL in 5m 32s
+87 actionable tasks: 87 executed

@@ -1,0 +1,82 @@
+  • electron-builder  version=25.1.8 os=10.0.19045
+  • loaded configuration  file=package.json ("build" field)
+  • author is missed in the package.json  appPackageFile=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\desktop\package.json
+  • installing production dependencies  platform=win32 arch=x64 appDir=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\desktop
+  • executing @electron/rebuild  electronVersion=33.2.1 arch=x64 buildFromSource=false appDir=./
+  • installing native dependencies  arch=x64
+  • completed installing native dependencies
+  • packaging       platform=win32 arch=x64 electron=33.2.1 appOutDir=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\win-unpacked
+  • updating asar integrity executable resource  executablePath=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\win-unpacked\Nizam Al-Idara.exe
+  • Cannot detect repository by .git/config. Please specify "repository" in the package.json (https://docs.npmjs.com/files/package.json#repository).
+Please see https://electron.build/publish
+  • building        target=nsis file=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\nizam-setup-x64.exe archs=x64 oneClick=false perMachine=false
+  • signing with signtool.exe  path=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\__uninstaller-nsis-nizam-al-idara-desktop.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • signing with signtool.exe  path=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\nizam-setup-x64.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • building block map  blockMapFile=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\nizam-setup-x64.exe.blockmap
+  • Cannot detect repository by .git/config. Please specify "repository" in the package.json (https://docs.npmjs.com/files/package.json#repository).
+Please see https://electron.build/publish
+  • Cannot detect repository by .git/config. Please specify "repository" in the package.json (https://docs.npmjs.com/files/package.json#repository).
+Please see https://electron.build/publish
+  ⨯ Cannot read properties of null (reading 'channel')  failedTask=build stackTrace=TypeError: Cannot read properties of null (reading 'channel')
+    at computeChannelNames (C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\node_modules\app-builder-lib\src\publish\updateInfoBuilder.ts:47:74)
+    at createUpdateInfoTasks (C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\node_modules\app-builder-lib\src\publish\updateInfoBuilder.ts:143:27)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+x64_setup=1
+  • electron-builder  version=25.1.8 os=10.0.19045
+  • loaded configuration  file=package.json ("build" field)
+  • author is missed in the package.json  appPackageFile=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\desktop\package.json
+  • installing production dependencies  platform=win32 arch=ia32 appDir=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\desktop
+  • executing @electron/rebuild  electronVersion=33.2.1 arch=ia32 buildFromSource=false appDir=./
+  • installing native dependencies  arch=ia32
+  • completed installing native dependencies
+  • packaging       platform=win32 arch=ia32 electron=33.2.1 appOutDir=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\win-ia32-unpacked
+  • updating asar integrity executable resource  executablePath=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\win-ia32-unpacked\Nizam Al-Idara.exe
+  • Cannot detect repository by .git/config. Please specify "repository" in the package.json (https://docs.npmjs.com/files/package.json#repository).
+Please see https://electron.build/publish
+  • building        target=nsis file=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\nizam-setup-ia32.exe archs=ia32 oneClick=false perMachine=false
+  • signing with signtool.exe  path=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\__uninstaller-nsis-nizam-al-idara-desktop.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • signing with signtool.exe  path=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\nizam-setup-ia32.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • building block map  blockMapFile=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\nizam-setup-ia32.exe.blockmap
+  • Cannot detect repository by .git/config. Please specify "repository" in the package.json (https://docs.npmjs.com/files/package.json#repository).
+Please see https://electron.build/publish
+  • Cannot detect repository by .git/config. Please specify "repository" in the package.json (https://docs.npmjs.com/files/package.json#repository).
+Please see https://electron.build/publish
+  ⨯ Cannot read properties of null (reading 'channel')  failedTask=build stackTrace=TypeError: Cannot read properties of null (reading 'channel')
+    at computeChannelNames (C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\node_modules\app-builder-lib\src\publish\updateInfoBuilder.ts:47:74)
+    at createUpdateInfoTasks (C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\node_modules\app-builder-lib\src\publish\updateInfoBuilder.ts:143:27)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+ia32_setup=1
+  • electron-builder  version=25.1.8 os=10.0.19045
+  • loaded configuration  file=package.json ("build" field)
+  • author is missed in the package.json  appPackageFile=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\desktop\package.json
+  • installing production dependencies  platform=win32 arch=x64 appDir=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\desktop
+  • executing @electron/rebuild  electronVersion=33.2.1 arch=x64 buildFromSource=false appDir=./
+  • installing native dependencies  arch=x64
+  • completed installing native dependencies
+  • packaging       platform=win32 arch=x64 electron=33.2.1 appOutDir=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\win-unpacked
+  • updating asar integrity executable resource  executablePath=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\win-unpacked\Nizam Al-Idara.exe
+  • building        target=portable file=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\nizam-portable-x64.exe archs=x64
+  • signing with signtool.exe  path=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\nizam-portable-x64.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • Cannot detect repository by .git/config. Please specify "repository" in the package.json (https://docs.npmjs.com/files/package.json#repository).
+Please see https://electron.build/publish
+x64_portable=0
+  • electron-builder  version=25.1.8 os=10.0.19045
+  • loaded configuration  file=package.json ("build" field)
+  • author is missed in the package.json  appPackageFile=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\desktop\package.json
+  • installing production dependencies  platform=win32 arch=ia32 appDir=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\desktop
+  • executing @electron/rebuild  electronVersion=33.2.1 arch=ia32 buildFromSource=false appDir=./
+  • installing native dependencies  arch=ia32
+  • completed installing native dependencies
+  • packaging       platform=win32 arch=ia32 electron=33.2.1 appOutDir=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\win-ia32-unpacked
+  • updating asar integrity executable resource  executablePath=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\win-ia32-unpacked\Nizam Al-Idara.exe
+  • building        target=portable file=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\nizam-portable-ia32.exe archs=ia32
+  • signing with signtool.exe  path=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\nizam-portable-ia32.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • Cannot detect repository by .git/config. Please specify "repository" in the package.json (https://docs.npmjs.com/files/package.json#repository).
+Please see https://electron.build/publish
+ia32_portable=0

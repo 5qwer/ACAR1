@@ -1,0 +1,108 @@
+  • electron-builder  version=25.1.8 os=10.0.19045
+  • loaded configuration  file=package.json ("build" field)
+  • author is missed in the package.json  appPackageFile=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\desktop\package.json
+  • installing production dependencies  platform=win32 arch=x64 appDir=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\desktop
+  • executing @electron/rebuild  electronVersion=33.2.1 arch=x64 buildFromSource=false appDir=./
+  • installing native dependencies  arch=x64
+  • completed installing native dependencies
+  • packaging       platform=win32 arch=x64 electron=33.2.1 appOutDir=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\win-unpacked
+  • downloading     url=https://github.com/electron/electron/releases/download/v33.2.1/electron-v33.2.1-win32-x64.zip size=115 MB parts=8
+  • downloaded      url=https://github.com/electron/electron/releases/download/v33.2.1/electron-v33.2.1-win32-x64.zip duration=1m14.037s
+  • updating asar integrity executable resource  executablePath=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\win-unpacked\Nizam Al-Idara.exe
+  • Cannot detect repository by .git/config. Please specify "repository" in the package.json (https://docs.npmjs.com/files/package.json#repository).
+Please see https://electron.build/publish
+  • installing production dependencies  platform=win32 arch=ia32 appDir=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\desktop
+  • executing @electron/rebuild  electronVersion=33.2.1 arch=ia32 buildFromSource=false appDir=./
+  • installing native dependencies  arch=ia32
+  • completed installing native dependencies
+  • packaging       platform=win32 arch=ia32 electron=33.2.1 appOutDir=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\win-ia32-unpacked
+  • downloading     url=https://github.com/electron/electron/releases/download/v33.2.1/electron-v33.2.1-win32-ia32.zip size=107 MB parts=8
+  • downloaded      url=https://github.com/electron/electron/releases/download/v33.2.1/electron-v33.2.1-win32-ia32.zip duration=1m24.014s
+  • updating asar integrity executable resource  executablePath=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\win-ia32-unpacked\Nizam Al-Idara.exe
+  • Cannot detect repository by .git/config. Please specify "repository" in the package.json (https://docs.npmjs.com/files/package.json#repository).
+Please see https://electron.build/publish
+  • building        target=nsis file=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\nizam-setup.exe archs=x64, ia32 oneClick=false perMachine=false
+  • signing with signtool.exe  path=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\__uninstaller-nsis-nizam-al-idara-desktop.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • signing with signtool.exe  path=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\nizam-setup.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • building block map  blockMapFile=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\nizam-setup.exe.blockmap
+  • Cannot detect repository by .git/config. Please specify "repository" in the package.json (https://docs.npmjs.com/files/package.json#repository).
+Please see https://electron.build/publish
+  • Cannot detect repository by .git/config. Please specify "repository" in the package.json (https://docs.npmjs.com/files/package.json#repository).
+Please see https://electron.build/publish
+  • building        target=nsis file=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\nizam-setup-x64.exe archs=x64 oneClick=false perMachine=false
+  • signing with signtool.exe  path=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\__uninstaller-nsis-nizam-al-idara-desktop.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • signing with signtool.exe  path=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\nizam-setup-x64.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • building block map  blockMapFile=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\nizam-setup-x64.exe.blockmap
+  • Cannot detect repository by .git/config. Please specify "repository" in the package.json (https://docs.npmjs.com/files/package.json#repository).
+Please see https://electron.build/publish
+  • Cannot detect repository by .git/config. Please specify "repository" in the package.json (https://docs.npmjs.com/files/package.json#repository).
+Please see https://electron.build/publish
+  • building        target=nsis file=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\nizam-setup-ia32.exe archs=ia32 oneClick=false perMachine=false
+  • signing with signtool.exe  path=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\__uninstaller-nsis-nizam-al-idara-desktop.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • signing with signtool.exe  path=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\nizam-setup-ia32.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • building block map  blockMapFile=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\nizam-setup-ia32.exe.blockmap
+  • Cannot detect repository by .git/config. Please specify "repository" in the package.json (https://docs.npmjs.com/files/package.json#repository).
+Please see https://electron.build/publish
+  • Cannot detect repository by .git/config. Please specify "repository" in the package.json (https://docs.npmjs.com/files/package.json#repository).
+Please see https://electron.build/publish
+  • building        target=portable file=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\nizam-portable.exe archs=x64, ia32
+  • signing with signtool.exe  path=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\nizam-portable.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • Cannot detect repository by .git/config. Please specify "repository" in the package.json (https://docs.npmjs.com/files/package.json#repository).
+Please see https://electron.build/publish
+  • building        target=portable file=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\nizam-portable-x64.exe archs=x64
+  • signing with signtool.exe  path=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\nizam-portable-x64.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • Cannot detect repository by .git/config. Please specify "repository" in the package.json (https://docs.npmjs.com/files/package.json#repository).
+Please see https://electron.build/publish
+  • building        target=portable file=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\nizam-portable-ia32.exe archs=ia32
+  • signing with signtool.exe  path=C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\release\nizam-portable-ia32.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • Cannot detect repository by .git/config. Please specify "repository" in the package.json (https://docs.npmjs.com/files/package.json#repository).
+Please see https://electron.build/publish
+  ⨯ Cannot cleanup: 
+
+Error #1 --------------------------------------------------------------------------------
+TypeError: Cannot read properties of null (reading 'channel')
+    at computeChannelNames (C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\node_modules\app-builder-lib\src\publish\updateInfoBuilder.ts:47:74)
+    at createUpdateInfoTasks (C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\node_modules\app-builder-lib\src\publish\updateInfoBuilder.ts:143:27)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+Error #2 --------------------------------------------------------------------------------
+TypeError: Cannot read properties of null (reading 'channel')
+    at computeChannelNames (C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\node_modules\app-builder-lib\src\publish\updateInfoBuilder.ts:47:74)
+    at createUpdateInfoTasks (C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\node_modules\app-builder-lib\src\publish\updateInfoBuilder.ts:143:27)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+Error #3 --------------------------------------------------------------------------------
+TypeError: Cannot read properties of null (reading 'channel')
+    at computeChannelNames (C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\node_modules\app-builder-lib\src\publish\updateInfoBuilder.ts:47:74)
+    at createUpdateInfoTasks (C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\node_modules\app-builder-lib\src\publish\updateInfoBuilder.ts:143:27)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)  failedTask=build stackTrace=Error: Cannot cleanup: 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           Error #1 --------------------------------------------------------------------------------
+TypeError: Cannot read properties of null (reading 'channel')
+    at computeChannelNames (C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\node_modules\app-builder-lib\src\publish\updateInfoBuilder.ts:47:74)
+    at createUpdateInfoTasks (C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\node_modules\app-builder-lib\src\publish\updateInfoBuilder.ts:143:27)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           Error #2 --------------------------------------------------------------------------------
+TypeError: Cannot read properties of null (reading 'channel')
+    at computeChannelNames (C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\node_modules\app-builder-lib\src\publish\updateInfoBuilder.ts:47:74)
+    at createUpdateInfoTasks (C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\node_modules\app-builder-lib\src\publish\updateInfoBuilder.ts:143:27)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           Error #3 --------------------------------------------------------------------------------
+TypeError: Cannot read properties of null (reading 'channel')
+    at computeChannelNames (C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\node_modules\app-builder-lib\src\publish\updateInfoBuilder.ts:47:74)
+    at createUpdateInfoTasks (C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\node_modules\app-builder-lib\src\publish\updateInfoBuilder.ts:143:27)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at throwError (C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\node_modules\builder-util\src\asyncTaskManager.ts:88:11)
+    at checkErrors (C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\node_modules\builder-util\src\asyncTaskManager.ts:53:9)
+    at AsyncTaskManager.awaitTasks (C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\node_modules\builder-util\src\asyncTaskManager.ts:58:5)
+    at PublishManager.awaitTasks (C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\node_modules\app-builder-lib\src\publish\PublishManager.ts:235:28)
+    at C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\node_modules\app-builder-lib\src\index.ts:133:32
+    at executeFinally (C:\Users\user\.freebuff\worktrees\f02b323d\f8efb378f671208c877a3c1264b00b34c6e492d88f5d3325\node_modules\builder-util\src\promise.ts:23:9)
