@@ -103,6 +103,9 @@
   <symbol id="ic-arrow" viewBox="0 0 24 24"><path d="M14 6l-6 6 6 6"/></symbol>
   <symbol id="ic-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5.5l-8-3-8 3V12c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></symbol>
   <symbol id="ic-check" viewBox="0 0 24 24"><path d="m5 13 4.5 4.5L19 7"/></symbol>
+  <symbol id="ic-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="ic-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="ic-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
   <symbol id="ic-save" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></symbol>
 </svg>
 
@@ -111,6 +114,8 @@
 <div class="glow glow--3"></div>
 
 <script>var _ag = document.getElementById('authGate'); if (_ag) _ag.classList.remove('is-hidden');</script>
+
+<script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('app_theme')||'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}</script>
 
 <div class="app">
   <!-- ===== شريط العنوان ===== -->
@@ -131,12 +136,20 @@
       </span>
     </button>
 
+    <div class="titlebar__clock" id="topClock" title="التوقيت والتاريخ بتوقيت القاهرة">
+      <svg viewBox="0 0 24 24" class="ico"><use href="#ic-clock"/></svg>
+      <b id="clockTop">--:--</b>
+      <span id="dateTop">—</span>
+      <span class="titlebar__hijri" id="hijriTop">— هـ</span>
+    </div>
+
     <div class="titlebar__actions">
       <div class="search-pill">
         <svg viewBox="0 0 24 24" class="ico"><use href="#ic-search"/></svg>
         <input type="text" placeholder="بحث سريع…" id="quickSearch" />
         <kbd>Ctrl K</kbd>
       </div>
+      <button class="icon-btn" id="themeBtn" title="تبديل الوضع الليلي / النهاري"><svg viewBox="0 0 24 24" class="ico"><use href="#ic-moon" id="themeIcon"/></svg></button>
       <button class="icon-btn" id="quickSaveBtn" title="رفع نسخة الآن (حفظ)">
         <svg viewBox="0 0 24 24" class="ico"><use href="#ic-save"/></svg>
       </button>
@@ -297,7 +310,7 @@
         <div class="table-wrap">
           <table class="table" id="customersTable">
             <thead>
-              <tr><th>#</th><th>اسم العميل</th><th>الهاتف</th><th>العنوان</th><th>الرصيد</th></tr>
+              <tr><th>#</th><th>اسم العميل</th><th>الهاتف</th><th>العنوان</th><th>المتبقي عليه</th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -554,15 +567,31 @@
             <div class="calc-box"><span>إجمالي المدفوع</span><input type="text" name="tPaid" readonly tabindex="-1" value="0" /></div>
             <div class="calc-box calc-box--accent"><span>الباقي بعد هذه الحركة</span><input type="text" name="tRest" readonly tabindex="-1" value="0" /></div>
           </div>
-          <div class="form__row">
-            <label class="field"><span>ورّد إلى (اسم عميل — اختياري)</span>
+          <div class="form__row form__row--3">
+            <label class="field"><span>الوجهة *</span>
+              <select name="destType" id="supDestType">
+                <option value="customer">ورد لعميل (يظهر في بروفايله مع الشغلانة)</option>
+                <option value="store">ورد لمخزن (بضاعة دخلت المخزن)</option>
+              </select>
+            </label>
+            <label class="field" id="supToWrap"><span>ورّد إلى (اسم عميل — اختياري)</span>
               <input type="text" name="to" id="supToInput" list="linkedNames" autocomplete="off" placeholder="اختر اسم عميل من القائمة…" />
               <datalist id="linkedNames"></datalist>
             </label>
-            <label class="field"><span>الشغلانة <i style="font-style:normal;color:#fcd34d;font-size:11px">* إجبارية مع العميل</i></span>
+            <label class="field" id="supWorkWrap"><span>الشغلانة <i style="font-style:normal;color:#fcd34d;font-size:11px">* إجبارية مع العميل</i></span>
               <input type="text" name="work" id="supWorkInput" autocomplete="off" placeholder="اختر شغلانة هذا العميل أو اكتب شغلانة جديدة…" />
               <div class="suggest-pop" id="supWorkSuggest" hidden></div>
             </label>
+          </div>
+          <div class="form__row form__row--3" id="supStoreWrap" hidden>
+            <label class="field"><span>المخزن *</span><select name="store" id="supStorePick"></select></label>
+            <label class="field"><span>اسم البضاعة *</span><input type="text" name="storeItemName" id="supStoreItem" list="storeItemListStore" autocomplete="off" placeholder="مثال: بلاط محارة" />
+              <datalist id="storeItemListStore"></datalist>
+            </label>
+            <label class="field"><span>الكمية *</span><input type="number" name="storeQty" min="0" step="any" placeholder="0" /></label>
+          </div>
+          <div class="form__row" id="supStorePriceRow" hidden>
+            <label class="field"><span>السعر للوحدة</span><input type="number" name="storePrice" min="0" step="any" placeholder="0" /></label>
           </div>
           <div class="form__row">
             <label class="field field--full"><span>ملاحظات</span><input type="text" name="note" placeholder="ملاحظة على الحركة…" /></label>
@@ -738,6 +767,21 @@
 
       <div class="summary summary--4" id="storeSummary"></div>
 
+      <div class="panel">
+        <h3 class="panel__title"><svg viewBox="0 0 24 24" class="ico"><use href="#ic-truck"/></svg> مخازني</h3>
+        <p class="panel__hint">ضيف مخزن جديد بالاسم، واختار المخزن اللي هتسجّل فيه كل حركة. تقدر كمان تعرض حركات مخزن معيّن أو كل المخازن مع بعض.</p>
+        <div class="form__row form__row--3">
+          <label class="field"><span>عرض حركات</span>
+            <select id="storeFilter"><option value="all">كل المخازن</option></select>
+          </label>
+          <label class="field"><span>اسم مخزن جديد *</span><input type="text" id="newStoreName" placeholder="مثال: مخزن الشرقية" autocomplete="off" /></label>
+          <div class="form__actions" style="margin:0;align-self:flex-end">
+            <button type="button" class="btn btn--primary" id="addStoreBtn"><svg viewBox="0 0 24 24" class="ico"><use href="#ic-plus"/></svg> إضافة مخزن</button>
+          </div>
+        </div>
+        <div class="store-chips" id="storeChips"></div>
+      </div>
+
       <div class="panel" id="storeShortagePanel" hidden>
         <h3 class="panel__title"><svg viewBox="0 0 24 24" class="ico"><use href="#ic-shield"/></svg> نقص في المخزون</h3>
         <p class="panel__note" id="storeShortageText"></p>
@@ -764,6 +808,13 @@
           <div class="form__row">
             <label class="field"><span>الكمية *</span><input type="number" name="qty" min="0" step="any" required placeholder="0" /></label>
             <label class="field"><span>السعر للوحدة *</span><input type="number" name="price" min="0" step="any" required placeholder="0" /></label>
+          </div>
+          <div class="form__row form__row--3">
+            <label class="field"><span>المخزن *</span>
+              <select name="store" id="storePick"></select>
+            </label>
+            <label class="field" id="storePaidWrap" hidden><span>دفعنا له كام مع هذه البضاعة (فلوس)</span><input type="number" name="paid" min="0" step="any" placeholder="0" /></label>
+            <label class="field" id="storeRefundWrap" hidden><span>مرتجع بفلوس — استلمنا كام (فلوس رجعت)</span><input type="number" name="refund" min="0" step="any" placeholder="0" /></label>
           </div>
           <div class="form__row">
             <label class="field"><span>الطرف *</span>
@@ -797,7 +848,7 @@
         <div class="table-wrap" style="margin-top:18px">
           <table class="table" id="storeTable">
             <thead><tr>
-              <th style="width:52px">#</th><th>التاريخ</th><th>النوع</th><th>البضاعة</th><th>الكمية</th>
+              <th style="width:52px">#</th><th>التاريخ</th><th>المخزن</th><th>النوع</th><th>البضاعة</th><th>الكمية</th>
               <th>سعر الوحدة</th><th>الإجمالي</th><th>الطرف</th><th>الشغلانة</th><th>ملاحظة</th><th style="width:64px"><span class="sr-only">حذف</span></th>
             </tr></thead>
             <tbody id="storeTbody"></tbody>
@@ -1613,9 +1664,7 @@
     <span class="statusbar__item"><span class="dot dot--ok"></span> جاهز</span>
     <span class="statusbar__item" id="statusSection">الرئيسية</span>
     <span class="statusbar__spacer"></span>
-    <span class="statusbar__item" id="dateHijri">— هـ</span>
-    <span class="statusbar__item" id="dateGreg">— م</span>
-    <span class="statusbar__item" id="clock">--:--</span>
+    <span class="statusbar__item">الوقت والتاريخ فوق الشريط بتوقيت القاهرة</span>
   </footer>
 </div>
 
@@ -1703,7 +1752,7 @@
 </div>
 
 <!-- ===== تنبيهات ===== -->
-<div class="toast" id="toast" role="status" aria-live="polite"><svg viewBox="0 0 24 24" class="ico"><use href="#ic-check"/></svg><span></span></div>
+<div class="toast" id="toast" role="status" aria-live="polite"><svg viewBox="0 0 24 24" class="ico"><use href="#ic-check"/></svg><span></span><button type="button" class="toast__x" id="toastClose" title="إغلاق الإشعار">&times;</button></div>
 
 <script>
 /* إنقاذ تحميل الملفات: الاستضافة بترجّع 502 متقطع، فلو أي ملف فشل تحميله

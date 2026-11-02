@@ -447,7 +447,8 @@ button{background:none;border:none;cursor:pointer}
   padding:13px 22px;border-radius:14px;box-shadow:0 18px 40px rgba(0,0,0,.55);
   font-size:14px;font-weight:600;transition:transform .35s cubic-bezier(.2,.9,.3,1.2);
 }
-.toast.show{transform:translate(50%,0)}
+.toast.show{transform:translate(calc(50% + var(--tx,0px)), var(--ty,0px))}
+.toast{transform:translate(calc(50% + var(--tx,0px)), calc(140% + var(--ty,0px)))}
 .toast .ico{width:19px;height:19px;color:var(--green)}
 
 /* ===== تنبيه الحقول الناقصة ===== */
@@ -926,3 +927,84 @@ label.btn{cursor:pointer;user-select:none}
 .drive-diag.is-bad{border-color:rgba(248,113,113,.55);background:rgba(248,113,113,.10)}
 .drive-diag.is-warn{border-color:rgba(245,158,11,.55);background:rgba(245,158,11,.10)}
 .drive-diag code{background:rgba(79,140,255,.14);padding:2px 6px;border-radius:6px;font-family:inherit}
+
+/* ===== الساعة والتاريخ فوق (بتوقيت القاهرة) ===== */
+.titlebar__clock{
+  display:flex;align-items:center;gap:9px;padding:8px 14px;border-radius:999px;
+  background:var(--panel);border:1px solid var(--line);color:var(--text);white-space:nowrap;
+}
+.titlebar__clock .ico{width:17px;height:17px;color:var(--secondary)}
+.titlebar__clock b{font-size:14.5px;font-weight:800;letter-spacing:.3px}
+.titlebar__clock span{font-size:12.5px;color:var(--muted)}
+.titlebar__clock .titlebar__hijri{color:var(--muted-2);font-size:11.5px}
+@media (max-width:900px){
+  .titlebar{flex-wrap:wrap;gap:10px}
+  .titlebar__clock{order:3;width:100%;justify-content:center}
+  .search-pill{width:180px}
+}
+
+/* ===== أزرار المخازن ===== */
+.store-chips{display:flex;flex-wrap:wrap;gap:9px;margin-top:12px}
+.store-chip{
+  display:inline-flex;align-items:center;gap:8px;padding:8px 13px;border-radius:12px;font-size:13.5px;
+  border:1px solid rgba(34,211,238,.4);background:rgba(34,211,238,.10);color:var(--text);
+}
+.store-chip.is-on{background:linear-gradient(135deg,var(--primary),var(--primary-light));border-color:transparent;color:#fff;font-weight:700}
+.store-chip button{background:transparent;border:0;color:#f87171;font-size:16px;line-height:1;cursor:pointer;padding:0 2px}
+
+/* ===== زر إغلاق الإشعار + السحب ===== */
+.toast__x{
+  background:rgba(255,255,255,.08);border:1px solid var(--line-strong);color:inherit;
+  width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:17px;line-height:1;
+  cursor:pointer;flex:none;padding:0;
+}
+.toast__x:hover{background:rgba(248,113,113,.25);border-color:rgba(248,113,113,.6)}
+.toast.is-dragging{transition:none;cursor:grabbing;user-select:none}
+
+/* ===== الوضع النهاري (وضع ليل/نهار) ===== */
+[data-theme="light"]{
+  --bg:#eef1f7;
+  --bg-2:#e7ebf3;
+  --panel:#ffffff;
+  --panel-2:#f2f5fa;
+  --line:rgba(15,23,42,.12);
+  --line-strong:rgba(15,23,42,.24);
+  --text:#131a26;
+  --muted:#4d5a70;
+  --muted-2:#6b7890;
+  --primary:#1d63e0;
+  --primary-light:#3b82f6;
+  --shadow:0 14px 40px rgba(15,23,42,.16);
+}
+[data-theme="light"] body{
+  background:
+    radial-gradient(1200px 600px at 85% -10%, #dbe6ff 0%, transparent 60%),
+    radial-gradient(900px 500px at 10% 110%, #dff5ec 0%, transparent 60%),
+    var(--bg);
+  color:var(--text);
+}
+[data-theme="light"] .glow{opacity:.20}
+[data-theme="light"] .titlebar{background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,255,255,.65));}
+[data-theme="light"] .statusbar{background:rgba(255,255,255,.75);}
+[data-theme="light"] .statusbar,
+[data-theme="light"] .statusbar__item{color:var(--muted)}
+[data-theme="light"] .content::-webkit-scrollbar-thumb{background:rgba(15,23,42,.22);background-clip:padding-box}
+[data-theme="light"] .modal__backdrop{background:rgba(15,23,42,.45)}
+[data-theme="light"] .modal__box{background:linear-gradient(180deg,#ffffff,#f1f4fa);color:var(--text)}
+[data-theme="light"] .toast{background:linear-gradient(135deg,#ffffff,#eef3fb);color:#0f2f22;border-color:rgba(5,150,105,.5)}
+[data-theme="light"] .kbd,[data-theme="light"] kbd{border-color:var(--line)}
+[data-theme="light"] .card,[data-theme="light"] .panel{background:var(--panel);border-color:var(--line)}
+[data-theme="light"] .drive-diag{background:rgba(255,255,255,.8);color:var(--text)}
+[data-theme="light"] .summary__box{background:var(--panel);border-color:var(--line)}
+[data-theme="light"] .table{background:var(--panel)}
+[data-theme="light"] thead th{background:var(--panel-2);color:var(--muted)}
+[data-theme="light"] input,[data-theme="light"] select,[data-theme="light"] textarea{background:var(--panel-2);border-color:var(--line);color:var(--text)}
+[data-theme="light"] .btn--ghost{background:var(--panel-2);border-color:var(--line);color:var(--text)}
+[data-theme="light"] .calc-box{background:var(--panel-2);border-color:var(--line)}
+[data-theme="light"] .calc-box--accent{background:rgba(79,140,255,.12)}
+[data-theme="light"] .field span{color:var(--muted)}
+[data-theme="light"] .search-pill{background:var(--panel)}
+[data-theme="light"] .icon-btn{background:var(--panel)}
+[data-theme="light"] .tag{border-color:var(--line-strong)}
+[data-theme="light"] .hero h1,[data-theme="light"] .card h3{color:var(--text)}
+[data-theme="light"] .titlebar__clock{background:var(--panel)}

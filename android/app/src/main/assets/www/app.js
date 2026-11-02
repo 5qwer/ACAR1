@@ -126,7 +126,7 @@
     if (id === 'collection') step(function () { renderCollection(colFilter()); renderCollectionSummary(); }, 'التحصيل');
     if (id === 'collection') step(function () { renderWaPanel(); }, 'رسائل واتساب');
     if (id === 'ledger') step(function () { renderLedger(); renderLedgerSummary(); fillPartyLists(); }, 'الدواخل والخوارج');
-    if (id === 'stores') step(function () { renderStores(); fillStoreSuggests(); }, 'المخازن');
+    if (id === 'stores') step(function () { renderStoreChips(); renderStores(); fillStoreSuggests(); }, 'المخازن');
     if (id === 'partners') step(function () { renderPartners(); }, 'الشركاء');
     if (id === 'associations') step(function () { renderAssociations(); }, 'الجمعيات');
     if (id === 'details') step(function () { renderDetails(); }, 'التفاصيل');
@@ -285,13 +285,16 @@
       var c = entry.c;
       var tr = document.createElement('tr');
       tr.setAttribute('data-idx', entry.i);
-      var bal = Number(c.balance || 0);
+      /* الرصيد الحقيقي المحسوب من الإجمالي والمقدم والتحصيل والدواخل والخوارج */
+      var bal = 0;
+      try { bal = derive(c).rest; } catch (e) { bal = Number(c.balance || 0); }
       tr.innerHTML =
         '<td>' + (i + 1) + '</td>' +
         '<td>' + escapeHtml(c.name) + '</td>' +
         '<td>' + escapeHtml(c.phone || '—') + '</td>' +
         '<td>' + escapeHtml(c.address || '—') + '</td>' +
-        '<td class="amount ' + (bal > 0 ? 'neg' : bal < 0 ? 'pos' : '') + '">' + fmt(bal) + '</td>';
+        '<td class="amount ' + (bal > 0 ? 'neg' : bal < 0 ? 'pos' : '') + '">' + fmt(bal) +
+        (bal > 0 ? ' <small style="color:var(--muted)">متبقي عليه</small>' : '') + '</td>';
       tbody.appendChild(tr);
     });
     if (!list.length) {
@@ -1946,6 +1949,10 @@
     f.elements.paid.value = '';
     f.elements.note.value = '';
     if (f.elements.to) f.elements.to.value = '';
+    if (f.elements.storeItemName) f.elements.storeItemName.value = '';
+    if (f.elements.storeQty) f.elements.storeQty.value = '';
+    if (f.elements.storePrice) f.elements.storePrice.value = '';
+    if (typeof fillStoreSuggests === 'function') { try { fillStoreSuggests(); } catch (e) {} }
     fillPartyLists();
     $('#supTxError').hidden = true;
     updateSupTxCalc();
@@ -2058,36 +2065,75 @@
       var date = f.date.value;
       var desc = String(f.desc.value || '').trim();
       var inc = parseFloat(f.incoming.value) || 0;
-      var pd = parseFloat(f.paid.value) || 0;
+      var pd = parseFloat(f.paid.value) || 0;      var destType = f.destType ? f.destType.value : 'customer';
       var toName = String((f.to && f.to.value) || '').trim();
       var workName = String((f.work && f.work.value) || '').trim();
+      var supStore = f.store ? String(f.store.value || '').trim() : '';
+      var supItem = String((f.storeItemName && f.storeItemName.value) || '').trim();
+      var supQty = parseFloat(f.storeQty ? f.storeQty.value : 0) || 0;
+      var supPrice = parseFloat(f.storePrice ? f.storePrice.value : 0) || 0;
 
       if (!date) fail('الرجاء إدخال التاريخ');
       else if (!desc) fail('الرجاء إدخال البيان');
-      else if (!(inc > 0) && !(pd > 0)) fail('أدخل مبلغاً في الوارد أو المدفوع');
-      else if (toName && !workName) fail('الشغلانة إجبارية مع العميل — اخترها من شغلاناته أو اكتبها');
+      else if (destType === 'store' && !supStore) fail('اختر المخزن اللي هتدخله البضاعة');
+      else if (destType === 'store' && !supItem) fail('اكتب اسم البضاعة');
+      else if (destType === 'store' && !(supQty > 0)) fail('أدخل كمية صحيحة أكبر من صفر');
+      else if (!(inc > 0) && !(pd > 0) && destType !== 'store') fail('أدخل مبلغاً في الوارد أو المدفوع');
+      else if (destType === 'customer' && toName && !workName) fail('الشغلانة إجبارية مع العميل — اخترها من شغلاناته أو اكتبها');
       else {
         var list = getSuppliers();
         var s = list[currentSupIdx];
         if (!s) return;
         var tx = (s.tx || []).slice();
+        var storeTot = Math.round(supQty * supPrice);
+        var isIncoming = destType === 'store' ? (inc > 0 ? inc : storeTot) : inc;
         tx.push({
           date: date,
           no: String(f.no.value || '').trim(),
           desc: desc,
-          incoming: inc,
+          incoming: isIncoming,
           paid: pd,
-          to: toName,
-          work: workName,
+          to: destType === 'store' ? '' : toName,
+          work: destType === 'store' ? ('مخزن: ' + supStore) : workName,
+          store: destType === 'store' ? supStore : '',
           note: String(f.note.value || '').trim()
         });
         tx.sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); });
         s.tx = tx;
         saveSuppliers(list);
+
+        /* ورد لمخزن: انشئ حركة دواخل في المخزن نفسه */
+        if (destType === 'store') {
+          var v = getStores();
+          var docs = v.docs;
+          docs.push({
+            date: date, type: 'in', item: supItem, qty: supQty,
+            price: supPrice, total: storeTot,
+            partyType: 'supplier', partyName: s.name || '', work: '', note: desc,
+            store: supStore, paid: 0, refund: 0
+          });
+          saveStores(v);
+          if (typeof renderStores === 'function') { try { renderStores(); } catch (e2) {} }
+        }
         renderSupplierProfile();
-        toast('تمت إضافة الحركة — الباقي: ' + signed(deriveSup(s).rest));
+        toast(destType === 'store'
+          ? 'اتسجّلت البضاعة «' + supItem + '» في «' + supStore + '» واتضافت لحساب المورد — الباقي: ' + signed(deriveSup(s).rest)
+          : 'تمت إضافة الحركة — الباقي: ' + signed(deriveSup(s).rest));
       }
     });
+
+    /* إظهار/إخفاء حقول الوجهة (عميل / مخزن) */
+    var supDestSel = $('#supDestType');
+    if (supDestSel) supDestSel.addEventListener('change', function () {
+      var isStore = this.value === 'store';
+      var tw = $('#supToWrap'), ww = $('#supWorkWrap'), sw = $('#supStoreWrap'), pr = $('#supStorePriceRow');
+      if (tw) tw.hidden = isStore;
+      if (ww) ww.hidden = isStore;
+      if (sw) sw.hidden = !isStore;
+      if (pr) pr.hidden = !isStore;
+      if (isStore && typeof fillStoreSuggests === 'function') { try { fillStoreSuggests(); } catch (e) {} }
+    });
+    supDestSel && supDestSel.dispatchEvent(new Event('change'));
   }
 
   /* ---------- تصنيف حركات المورد (الكل / الشغل / الدفعات) ---------- */
@@ -2455,22 +2501,86 @@
     });
   }
 
-  /* ---------- تنبيهات ---------- */
+  /* ---------- تنبيهات (قابلة للإغلاق بـ × والسحب للجنب) ---------- */
   var toastTimer = null;
+  function hideToast() {
+    var el = $('#toast');
+    if (!el) return;
+    clearTimeout(toastTimer);
+    el.classList.remove('show', 'is-dragging');
+    el.style.setProperty('--tx', '0px');
+    el.style.setProperty('--ty', '0px');
+  }
   function toast(msg, isError) {
     var el = $('#toast');
     el.querySelector('span').textContent = msg;
     el.style.borderColor = isError ? 'rgba(248,113,113,.5)' : 'rgba(52,211,153,.45)';
     el.style.color = isError ? '#fecaca' : '#d1fae5';
+    el.style.setProperty('--tx', '0px');
+    el.style.setProperty('--ty', '0px');
     el.classList.add('show');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { el.classList.remove('show'); }, 2800);
+    toastTimer = setTimeout(hideToast, 6000);
   }
+
+  (function wireToast() {
+    var el = $('#toast');
+    if (!el) return;
+    var close = $('#toastClose');
+    if (close) close.addEventListener('click', function (e) { e.stopPropagation(); hideToast(); });
+    el.addEventListener('click', function (e) {
+      if (e.target.closest('.toast__x')) return;
+      if (el.dataset.dragged === '1') { el.dataset.dragged = ''; return; }
+      hideToast();
+    });
+    var startX = 0, startY = 0, tx = 0, ty = 0, dragging = false;
+    el.addEventListener('pointerdown', function (e) {
+      if (e.target.closest('.toast__x')) return;
+      dragging = true;
+      startX = e.clientX - tx; startY = e.clientY - ty;
+      el.classList.add('is-dragging');
+      try { el.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    el.addEventListener('pointermove', function (e) {
+      if (!dragging) return;
+      tx = e.clientX - startX; ty = e.clientY - startY;
+      el.style.setProperty('--tx', tx + 'px');
+      el.style.setProperty('--ty', ty + 'px');
+      if (Math.abs(tx) + Math.abs(ty) > 8) el.dataset.dragged = '1';
+    });
+    function endDrag() {
+      if (!dragging) return;
+      dragging = false;
+      el.classList.remove('is-dragging');
+      /* سحب بعيد = إخفاء، وإلا يرجع مكانه */
+      var far = Math.abs(tx) > 140 || Math.abs(ty) > 140;
+      if (far) {
+        hideToast();
+        tx = 0; ty = 0;
+        el.style.setProperty('--tx', '0px');
+        el.style.setProperty('--ty', '0px');
+      } else {
+        tx = 0; ty = 0;
+        el.style.setProperty('--tx', '0px');
+        el.style.setProperty('--ty', '0px');
+      }
+      setTimeout(function () { el.dataset.dragged = ''; }, 60);
+    }
+    el.addEventListener('pointerup', endDrag);
+    el.addEventListener('pointercancel', endDrag);
+  })();
 
   /* ---------- الساعة والتواريخ (12 ساعة + هجري وميلادي) ---------- */
   function pad(n) { return String(n).padStart(2, '0'); }
 
+  var TZ_CAIRO = 'Africa/Cairo';
+
   function fmt12(d) {
+    try {
+      return new Intl.DateTimeFormat('ar-EG', {
+        timeZone: TZ_CAIRO, hour: 'numeric', minute: '2-digit', hour12: true
+      }).format(d);
+    } catch (e) {}
     var h = d.getHours();
     var ap = h < 12 ? 'ص' : 'م';
     h = h % 12;
@@ -2478,8 +2588,19 @@
     return h + ':' + pad(d.getMinutes()) + ' ' + ap;
   }
 
+  /* تاريخ ميلادي وهجري بتوقيت القاهرة */
+  function cairoParts(d) {
+    try {
+      return new Intl.DateTimeFormat('en-GB', {
+        timeZone: TZ_CAIRO, year: 'numeric', month: '2-digit', day: '2-digit'
+      }).format(d);
+    } catch (e) {
+      return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear();
+    }
+  }
+
   function fmtHijri(d) {
-    var opts = { day: 'numeric', month: 'numeric', year: 'numeric' };
+    var opts = { day: 'numeric', month: 'numeric', year: 'numeric', timeZone: TZ_CAIRO };
     var tries = ['ar-SA-u-ca-islamic-umalqura-nu-latn', 'ar-SA-u-ca-islamic-nu-latn'];
     for (var i = 0; i < tries.length; i++) {
       try {
@@ -2491,7 +2612,7 @@
   }
 
   function fmtGreg(d) {
-    var opts = { day: '2-digit', month: '2-digit', year: 'numeric' };
+    var opts = { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: TZ_CAIRO };
     var tries = ['ar-IQ-u-ca-gregory-nu-latn', 'ar-u-ca-gregory-nu-latn'];
     for (var i = 0; i < tries.length; i++) {
       try {
@@ -2504,15 +2625,34 @@
 
   function tick() {
     var d = new Date();
-    var c = $('#clock');
+    var c = $('#clockTop') || $('#clock');
     if (c) c.textContent = fmt12(d);
-    var h = $('#dateHijri');
-    if (h) h.textContent = fmtHijri(d);
-    var g = $('#dateGreg');
+    var g = $('#dateTop') || $('#dateGreg');
     if (g) g.textContent = fmtGreg(d);
+    var h = $('#hijriTop') || $('#dateHijri');
+    if (h) h.textContent = fmtHijri(d);
   }
   tick();
   setInterval(tick, 20000);
+
+  /* ---------- الوضع الليلي / النهاري ---------- */
+  var KEY_THEME = 'app_theme';
+  function applyTheme(theme) {
+    var t = theme === 'light' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', t);
+    var ic = $('#themeIcon');
+    if (ic) ic.setAttribute('href', t === 'light' ? '#ic-sun' : '#ic-moon');
+    var btn = $('#themeBtn');
+    if (btn) btn.title = t === 'light' ? 'الوضع نهاري — اضغط لليل' : 'الوضع ليلي — اضغط للنهار';
+  }
+  try { applyTheme(localStorage.getItem(KEY_THEME) || 'dark'); } catch (e) { applyTheme('dark'); }
+  var themeBtn = $('#themeBtn');
+  if (themeBtn) themeBtn.addEventListener('click', function () {
+    var next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    try { localStorage.setItem(KEY_THEME, next); } catch (e) {}
+    applyTheme(next);
+    toast(next === 'light' ? 'الوضع النهاري ✓' : 'الوضع الليلي ✓');
+  });
 
   /* ============================================================
      التحصيل الرئيسي — قائمة عملاء قابلة للتوسيع (أكورديون)
@@ -2909,7 +3049,15 @@
     getSuppliers().forEach(function (s, si) {
       var name = String(s.name || '').trim();
       (s.tx || []).forEach(function (t, k) {
+        var inc = Number(t.incoming || 0);
         var pd = Number(t.paid || 0);
+        /* مرتجع بفلوس: المورد رجّع لنا مبلغ فيبقى دخل */
+        if (inc < 0) ops.push({
+          auto: true, src: 'تلقائي', key: 'auto:sup:' + si + ':' + k + ':ref',
+          type: 'in', amount: Math.abs(inc), date: t.date || '',
+          desc: 'مرتجع بفلوس من مورد: ' + name, note: t.desc || '',
+          party: { type: 'supplier', name: name }
+        });
         if (pd > 0) ops.push({
           auto: true, src: 'تلقائي', key: 'auto:sup:' + si + ':' + k,
           type: 'out', amount: pd, date: t.date || '',
@@ -7267,23 +7415,58 @@
      ============================================================ */
   var KEY_STORES = 'app_stores';
 
+  var DEFAULT_STORE_NAME = 'المخزن الأساسي';
+
+  /* تطبيع البيانات: مخازن بأسماء + حركات كل حركة ليها مخزن */
+  function normStores(v) {
+    var docs = [], names = [];
+    if (Array.isArray(v)) docs = safeList(v, []);
+    else if (v && typeof v === 'object') {
+      docs = safeList(v.docs, []);
+      if (Array.isArray(v.stores)) {
+        v.stores.forEach(function (n) {
+          n = String(n || '').trim();
+          if (n && names.indexOf(n) === -1) names.push(n);
+        });
+      }
+    }
+    if (!names.length) {
+      docs.forEach(function (d) {
+        var s = String(d.store || '').trim();
+        if (s && names.indexOf(s) === -1) names.push(s);
+      });
+    }
+    if (!names.length) names = [DEFAULT_STORE_NAME];
+    docs.forEach(function (d) {
+      var s = String(d.store || '').trim();
+      if (!s || names.indexOf(s) === -1) d.store = names[0];
+    });
+    return { stores: names, docs: docs };
+  }
+
   function getStores() {
     try {
       var raw = localStorage.getItem(KEY_STORES);
       var v = raw ? JSON.parse(raw) : null;
-      if (Array.isArray(v)) return { docs: safeList(v, []) };
-      if (v && typeof v === 'object') return { docs: safeList(v.docs, []) };
+      return normStores(v);
     } catch (e) {}
-    return { docs: [] };
+    return { stores: [DEFAULT_STORE_NAME], docs: [] };
   }
   function saveStores(v) {
-    try { localStorage.setItem(KEY_STORES, JSON.stringify(v)); } catch (e2) {}
+    try { localStorage.setItem(KEY_STORES, JSON.stringify(normStores(v))); } catch (e2) {}
   }
-  function storeDocs() { return getStores().docs; }
+  function getStoreNames() { return getStores().stores; }
+  /* حركات مخزن معيّن — أو كل المخازن لو مفيش تحديد */
+  function storeDocs(store) {
+    var s = String(store || '').trim();
+    var all = getStores().docs;
+    if (!s || s === 'all') return all;
+    return all.filter(function (d) { return String(d.store || '').trim() === s; });
+  }
 
-  function storeTotals() {
+  function storeTotals(store) {
     var res = { inQty: 0, outQty: 0, retQty: 0, amtIn: 0, amtOut: 0, amtRet: 0, count: 0 };
-    storeDocs().forEach(function (d) {
+    storeDocs(store).forEach(function (d) {
       var q = Number(d.qty || 0), a = Number(d.total || 0);
       res.count++;
       if (d.type === 'in') { res.inQty += q; res.amtIn += a; }
@@ -7295,10 +7478,10 @@
     return res;
   }
 
-  function storeItemBalance(name) {
+  function storeItemBalance(name, store) {
     var b = 0;
     var nm = String(name || '').trim();
-    storeDocs().forEach(function (d) {
+    storeDocs(store).forEach(function (d) {
       if (String(d.item || '').trim() !== nm) return;
       var q = Number(d.qty || 0);
       if (d.type === 'out') b -= q; else b += q;
@@ -7306,19 +7489,19 @@
     return b;
   }
 
-  function storeItems() {
+  function storeItems(store) {
     var seen = {}, out = [];
-    storeDocs().forEach(function (d) {
+    storeDocs(store).forEach(function (d) {
       var nm = String(d.item || '').trim();
       if (nm && !seen[nm]) { seen[nm] = true; out.push(nm); }
     });
     return out;
   }
 
-  function storeShortages() {
+  function storeShortages(store) {
     var bad = [];
-    storeItems().forEach(function (nm) {
-      var b = storeItemBalance(nm);
+    storeItems(store).forEach(function (nm) {
+      var b = storeItemBalance(nm, store);
       if (b <= 0) bad.push({ item: nm, bal: b });
     });
     return bad;
@@ -7341,21 +7524,24 @@
 
   var STORE_LABEL = { in: 'دواخل', out: 'خوارج', return: 'مرتجع' };
 
+  var storeFilter = 'all';   /* المخزن المُختار للعرض */
+
   function renderStoreSummary() {
     var box = $('#storeSummary');
     if (!box) return;
-    var t = storeTotals();
+    var t = storeTotals(storeFilter);
+    var inStore = storeFilter && storeFilter !== 'all';
     box.innerHTML =
       '<div class="summary__box summary__box--in"><small>إجمالي الدواخل (وارد)</small><b>' + money(t.amtIn) + '</b><span>' + t.inQty + ' كمية</span></div>' +
       '<div class="summary__box summary__box--out"><small>إجمالي الخوارج (صادر)</small><b>' + money(t.amtOut) + '</b><span>' + t.outQty + ' كمية</span></div>' +
       '<div class="summary__box"><small>إجمالي المرتجع</small><b>' + money(t.amtRet) + '</b><span>' + t.retQty + ' كمية</span></div>' +
-      '<div class="summary__box summary__box--net"><small>المتبقي في المخزن</small><b>' + money(t.netAmt) + '</b><span>' + t.netQty + ' كمية</span></div>';
+      '<div class="summary__box summary__box--net"><small>المتبقي ' + (inStore ? 'في «' + esc(storeFilter) + '»' : 'في كل المخازن') + '</small><b>' + money(t.netAmt) + '</b><span>' + t.netQty + ' كمية</span></div>';
   }
 
   function renderStoreTable() {
     var tbody = $('#storeTbody');
     if (!tbody) return;
-    var docs = storeDocs().slice().reverse();  /* الأحدث أولاً */
+    var docs = storeDocs(storeFilter).slice().reverse();  /* الأحدث أولاً */
     var html = docs.map(function (d, n) {
       var lbl = STORE_LABEL[d.type] || d.type;
       var clsIn = d.type === 'in' ? 'tag--in' : 'tag--out';
@@ -7366,6 +7552,7 @@
       return '<tr>' +
         '<td>' + (n + 1) + '</td>' +
         '<td>' + esc(formatDate(d.date)) + '</td>' +
+        '<td>' + esc(d.store || '—') + '</td>' +
         '<td><span class="tag ' + clsIn + '">' + esc(lbl) + '</span></td>' +
         '<td>' + esc(d.item || '—') + '</td>' +
         '<td>' + esc(d.qty) + '</td>' +
@@ -7389,10 +7576,11 @@
   function renderStores() {
     renderStoreSummary();
     renderStoreTable();
+    renderStoreChips();
     var sup = $('#storeShortagePanel');
     var txt = $('#storeShortageText');
     if (sup && txt) {
-      var bad = storeShortages();
+      var bad = storeShortages(storeFilter);
       if (bad.length) {
         sup.hidden = false;
         txt.innerHTML = '<b>في نقص في عناصر المخزون دي:</b> ' +
@@ -7424,10 +7612,30 @@
     }
     var it = $('#storeItemList');
     if (it) {
-      it.innerHTML = storeItems().map(function (nm) {
+      it.innerHTML = storeItems($('#storePick') ? $('#storePick').value : '').map(function (nm) {
         return '<option value="' + esc(nm) + '"></option>';
       }).join('');
     }
+    var it2 = $('#storeItemListStore');
+    if (it2) {
+      it2.innerHTML = storeItems($('#supStorePick') ? $('#supStorePick').value : '').map(function (nm) {
+        return '<option value="' + esc(nm) + '"></option>';
+      }).join('');
+    }
+    renderStoreChips();
+  }
+
+  /* إظهار/إخفاء حقول الدفع حسب النوع والطرف */
+  function toggleStorePayFields() {
+    var f = $('#storeForm');
+    if (!f) return;
+    var typ = f.elements.type.value;
+    var party = f.elements.partyType.value;
+    var pw = $('#storePaidWrap'), rw = $('#storeRefundWrap');
+    if (pw) pw.hidden = !(typ === 'in' && party === 'supplier');
+    if (rw) rw.hidden = !(typ === 'return' && party === 'supplier');
+    if (pw && !pw.hidden && !f.elements.paid.value) f.elements.paid.value = '';
+    if (rw && !rw.hidden && !f.elements.refund.value) f.elements.refund.value = '';
   }
 
   function updateStoreCalc() {
@@ -7436,8 +7644,9 @@
     var qty = parseFloat(f.elements.qty.value) || 0;
     var price = parseFloat(f.elements.price.value) || 0;
     f.elements.storeTotal.value = money(qty * price);
-    var item = String(f.elements.item.value || '').trim();
-    var bal = item ? storeItemBalance(item) : 0;
+    var item = String(($('#storeItem') || {}).value || '').trim();   /* f.elements.item دالة مش حقل! */
+    var store = f.elements.store ? f.elements.store.value : '';
+    var bal = item ? storeItemBalance(item, store) : 0;
     var typ = f.elements.type.value;
     if (item && typ === 'in') bal = bal + qty;
     else if (item && (typ === 'out' || typ === 'return')) bal = bal - qty;
@@ -7484,6 +7693,28 @@
     } catch (e) {}
   }
 
+  /* أثر المبلغ على الحساب: دفع للمورد يقلّل الباقي، والمرتجع النقدي يرجّع فلوس */
+  function applyStoreMoney(doc) {
+    try {
+      if (doc.partyType !== 'supplier' || !doc.partyName) return;
+      var paid = Number(doc.paid || 0), refund = Number(doc.refund || 0);
+      if (!(paid > 0) && !(refund > 0)) return;
+      var sups = getSuppliers();
+      var si = sups.map(function (s) { return String(s.name || '').trim(); }).indexOf(String(doc.partyName).trim());
+      if (si === -1) return;
+      var tx = (sups[si].tx || []).slice();
+      if (paid > 0) {
+        tx.push({ date: doc.date, no: '', desc: 'دفعة مع بضاعة «' + doc.item + '» (المخازن)', incoming: 0, paid: paid, via: 'stores' });
+      }
+      if (refund > 0) {
+        tx.push({ date: doc.date, no: '', desc: 'مرتجع بفلوس مع «' + doc.item + '» (المخازن)', incoming: -refund, paid: 0, via: 'stores' });
+      }
+      tx.sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); });
+      sups[si].tx = tx;
+      saveSuppliers(sups);
+    } catch (e) {}
+  }
+
   var storeForm = $('#storeForm');
   if (storeForm) {
     storeForm.addEventListener('input', updateStoreCalc);
@@ -7498,9 +7729,12 @@
       var f = storeForm.elements;
       var date = f.date.value;
       var type = ['in', 'out', 'return'].indexOf(f.type.value) > -1 ? f.type.value : 'in';
-      var item = String(f.item.value || '').trim();
+      var item = String(($('#storeItem') || {}).value || '').trim();   /* الحقل اسمه item و f.item دالة HTMLCollection */
       var qty = parseFloat(f.qty.value);
       var price = parseFloat(f.price.value);
+      var store = f.elements.store ? String(f.elements.store.value || '').trim() : '';
+      var paid = parseFloat(f.paid && !f.paid.value === undefined ? f.paid.value : (f.elements.paid ? f.elements.paid.value : 0)) || 0;
+      var refund = parseFloat(f.elements.refund ? f.elements.refund.value : 0) || 0;
       var partyType = f.partyType.value;
       var partyName = String(f.partyName.value || '').trim();
       var work = String(f.work.value || '').trim();
@@ -7508,33 +7742,86 @@
 
       var miss = [];
       if (!date) miss.push('التاريخ');
+      if (!store) miss.push('المخزن');
       if (!item) miss.push('اسم البضاعة');
       if (!(qty > 0)) miss.push('الكمية');
       if (!(price >= 0)) miss.push('السعر');
       if (!partyName) miss.push('اسم الطرف');
+      if (paid < 0) miss.push('المبلغ المدفوع');
+      if (refund < 0) miss.push('مبلغ المرتجع');
+      if (paid > 0 && type !== 'in') miss.push('الدفع بس مع «دواخل»');
+      if (refund > 0 && type !== 'return') miss.push('المرتجع النقدي بس مع «مرتجع»');
       if (miss.length) return fail('الرجاء إدخال: ' + miss.join('، '));
       if (err) err.hidden = true;
 
       var total = Math.round(qty * price);
-      var docs = storeDocs();
+      var v = getStores();
+      var docs = v.docs;
       var doc = {
         date: date, type: type, item: item, qty: qty, price: price, total: total,
-        partyType: partyType, partyName: partyName, work: work, note: note
+        partyType: partyType, partyName: partyName, work: work, note: note,
+        store: store, paid: paid, refund: refund
       };
       docs.push(doc);
-      saveStores({ docs: docs });
+      saveStores(v);
       storeLinkToParty(doc);
+      applyStoreMoney(doc);
 
       storeForm.reset();
       f.date.value = todayISO();
       f.type.value = type;
       fillStoreSuggests();
+      toggleStorePayFields();
       updateStoreCalc();
       renderStores();
       var lbl = STORE_LABEL[type] || type;
-      toast('تم تسجيل ' + lbl + ' «' + item + '» بكمية ' + qty + ' وبتتعلق بـ ' + partyName + ' في بروفايله ✓');
+      var extra = '';
+      if (paid > 0) extra = ' — واتسجّل دفع ' + money(paid) + ' للمورد';
+      if (refund > 0) extra = ' — واتسجّل مرتجع نقدي ' + money(refund);
+      toast('تم تسجيل ' + lbl + ' «' + item + '» في «' + store + '» بكمية ' + qty + ' وبتتعلق بـ ' + partyName + ' في بروفايله' + extra + ' ✓');
     });
+
+    /* إظهار/إخفاء حقول الدفع مع تغيير النوع أو الطرف أو المخزن */
+    storeForm.addEventListener('change', toggleStorePayFields);
+    toggleStorePayFields();
   }
+
+  /* أزرار: إضافة مخزن / فلتر من الشريط / حذف مخزن */
+  var addStoreBtn = $('#addStoreBtn');
+  if (addStoreBtn) addStoreBtn.addEventListener('click', function () {
+    var inp = $('#newStoreName');
+    if (addStore(inp ? inp.value : '')) { if (inp) inp.value = ''; }
+  });
+  var newStoreName = $('#newStoreName');
+  if (newStoreName) newStoreName.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); if (addStoreBtn) addStoreBtn.click(); }
+  });
+  var storeFilterSel = $('#storeFilter');
+  if (storeFilterSel) storeFilterSel.addEventListener('change', function () {
+    storeFilter = this.value || 'all';
+    renderStoreChips();
+    renderStores();
+  });
+  document.addEventListener('click', function (e) {
+    var pick = e.target && e.target.closest ? e.target.closest('[data-store-pick]') : null;
+    if (pick && !e.target.closest('[data-store-del]')) {
+      storeFilter = pick.getAttribute('data-store-pick') || 'all';
+      renderStoreChips();
+      renderStores();
+      return;
+    }
+    var del = e.target && e.target.closest ? e.target.closest('[data-store-del]') : null;
+    if (del) {
+      var nm = del.getAttribute('data-store-del');
+      if (!nm) return;
+      openConfirm({
+        title: 'حذف مخزن',
+        message: 'هل تريد حذف المخزن «' + nm + '»؟ حركاته هتتنقل لمخزن تاني وما هتضيعش.',
+        yes: 'نعم، حذف', no: 'تراجع',
+        onYes: function () { deleteStore(nm); }
+      });
+    }
+  });
 
   /* حذف حركة مخزن — بتفسخ كذلك الرابط عند الطرف إن وجد */
   document.addEventListener('click', function (e) {
