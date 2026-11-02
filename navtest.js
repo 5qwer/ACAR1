@@ -2,7 +2,7 @@
 const { chromium } = require('playwright');
 
 const BASE = process.env.BASE || 'http://localhost:4173/';
-const NAVS = ['customers', 'add-customer', 'suppliers', 'ledger', 'details', 'settings',
+const NAVS = ['customers', 'add-customer', 'suppliers', 'ledger', 'stores', 'details', 'settings',
   'collection', 'partners', 'associations', 'operations'];
 
 (async () => {

@@ -17,8 +17,8 @@
     "dist:mac": "electron-builder --mac dmg --x64 --arm64"
   },
   "devDependencies": {
-    "electron": "^33.2.1",
-    "electron-builder": "^25.1.8"
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8"
   },
   "build": {
     "appId": "com.amw.nizam-idara",
@@ -32,19 +32,36 @@
       {
         "from": "../dist",
         "to": "dist",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       },
       {
         "from": "../icons",
         "to": "icons",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "win": {
       "icon": "../icons/icon-512.png",
+      "signAndEditExecutable": false,
       "target": [
-        { "target": "nsis", "arch": ["x64", "ia32"] },
-        { "target": "portable", "arch": ["x64", "ia32"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        }
       ]
     },
     "nsis": {
@@ -61,13 +78,24 @@
       "artifactName": "nizam-portable-${arch}.${ext}"
     },
     "linux": {
-      "target": ["AppImage", "deb"],
-      "arch": ["x64", "ia32"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "category": "Office"
     },
     "mac": {
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "category": "public.app-category.business"
-    }
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://updates.local.invalid/nizam/",
+        "channel": "latest"
+      }
+    ]
   }
 }

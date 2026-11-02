@@ -5,6 +5,7 @@ const path = require('path');
 
 const dist = path.join(__dirname, 'dist');
 const PORT = Number(process.env.PORT || 4173);
+let failApp = Number(process.env.FAIL_APPJS || 0);
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8',
@@ -24,6 +25,12 @@ http.createServer((req, res) => {
     return json({ configured: true, connected: true, email: 'gstsyusudg@gmail.com', verdict: 'ok' });
   }
   if (p === '/api/sync/pull') return json({ ok: false, error: 'mock' });
+  if (p === '/app.js' && failApp > 0) {
+    failApp--;
+    res.statusCode = 502;
+    res.setHeader('Content-Type', 'text/plain');
+    return res.end('502 mock');
+  }
   if (p.startsWith('/api/')) return json({ ok: false, error: 'mock' }, 404);
 
   let file = path.join(dist, p === '/' ? 'index.html' : p.slice(1));

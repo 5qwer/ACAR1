@@ -17,7 +17,7 @@ import android.webkit.WebViewClient;
  */
 public class MainActivity extends Activity {
 
-    private static final String START_URL = "file:///android_asset/www/index.html";
+    private static final String START_URL = "file:///android_asset/www/index_local.html";
     private WebView web;
 
     @SuppressLint("SetJavaScriptEnabled")

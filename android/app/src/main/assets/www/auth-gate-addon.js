@@ -13,6 +13,13 @@
 
   var ADMIN_EMAIL = 'gstsyusudg@gmail.com';
   var VIEWER = false;
+  /* بيئات موثوقة: نسخة سطح المكتب (Electron) أو الأندرويد المدمجة (Capacitor).
+     هي جهاز المالك نفسه، فالصلاحيات كاملة فوراً بدون أي طلب شبكة — أسرع إقلاع. */
+  var TRUSTED = false;
+  try {
+    TRUSTED = (window.APP_TRUSTED_RUNTIME === true) ||
+      (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  } catch (e) {}
 
   /* نصوص الأزرار المحظورة على المشاهد (وراء دفع/تحصيل أفعال مثل «تسجيل دفع») */
   var BLOCK_RE = /إضافة|إضافه|تعديل|حذف|حذف الكل|مسح|حفظ|رفع|تصدير|تحميل|دفع|تحصيل|فصل|استرجاع|استرداد|أرباح|ارباح|إدخال|تنفيذ|إرسال|ارسال|مزامنة|استعادة|إرجاع|تغيير|إفراغ|ترحيل/;
@@ -270,24 +277,65 @@
     } catch (e) {}
   }
 
-  /* ---------- تحديد الدور ----------
+  /* ---------- تحديد الدور (سريع: يبدأ من الكاش — بدون شاشة انتظار أو «إعادة المحاولة»)
      القاعدة: «المُصرَّح به» = gstsyusudg@gmail.com وهو متصل فقط.
-     أي حساب آخر، أو فصل الربط، أو تعذّر التأكد → وضع المشاهد. */
+     الاستضافة أحياناً ما ترجع 502 لطلبات /api — فمكان ما نعرض شاشة
+     إعادة المحاولة فوراً، نعيد التحقق بهدوء 3 مرات وبنيتها سريعة، ولو
+     كان في كاش «مُصرَّح له» نكمل به بدلاً من تغيّر المالك النجيب. */
+  var ROLE_CACHE_KEY = 'app_role_cache';
+  function roleFromCache() {
+    try {
+      var c = JSON.parse(localStorage.getItem(ROLE_CACHE_KEY) || 'null');
+      if (c && c.role === 'admin' && c.email === ADMIN_EMAIL) return c;
+    } catch (e) {}
+    return null;
+  }
+  function applyAdminFast() {
+    document.documentElement.removeAttribute('data-viewer-mode');
+    var bar = document.getElementById('viewerDriveBar');
+    if (bar) bar.style.display = 'none';
+  }
   if (typeof fetch === 'function') {
-    fetch('/api/google/status', { credentials: 'same-origin' })
-      .then(function (r) { return r.json().catch(function () { return {}; }); })
-      .then(function (s) {
-        var connected = !!(s && s.connected);
-        var email = connected ? String(s.email || '').trim().toLowerCase() : '';
-        var isAdmin = connected && email === ADMIN_EMAIL;
-        try {
-          localStorage.setItem('app_user_email', email);
-          localStorage.setItem('app_user_role', isAdmin ? 'admin' : 'viewer');
-        } catch (e) {}
-        if (!isAdmin) applyViewer(connected);   /* غير المصرح له أو مفصول الربط = مشاهد */
-        if (connected && /[?&]g=ok/.test(location.search)) setTimeout(pullShared, 700);
-      })
-      .catch(function () { applyViewer(false); });   /* تعذّر التأكد = مشاهد */
+    if (TRUSTED) {
+      applyAdminFast();
+      try {
+        localStorage.setItem('app_user_role', 'admin');
+        localStorage.setItem('app_user_email', ADMIN_EMAIL);
+      } catch (e) {}
+      return;
+    }
+    var cachedRole = roleFromCache();
+    var checkTries = 0;
+    function verifyRole() {
+      fetch('/api/google/status', { credentials: 'same-origin' })
+        .then(function (r) { if (r.ok === false) throw new Error('status ' + r.status); return r.json(); })
+        .then(function (s) {
+          var connected = !!(s && s.connected);
+          var email = connected ? String(s.email || '').trim().toLowerCase() : '';
+          var isAdmin = connected && email === ADMIN_EMAIL;
+          try {
+            localStorage.setItem('app_user_email', email);
+            localStorage.setItem('app_user_role', isAdmin ? 'admin' : 'viewer');
+            if (isAdmin) localStorage.setItem(ROLE_CACHE_KEY, JSON.stringify({ email: email, role: 'admin', ts: Date.now() }));
+            else localStorage.removeItem(ROLE_CACHE_KEY);
+          } catch (e) {}
+          if (isAdmin) applyAdminFast();
+          else applyViewer(connected);
+          if (connected && /[?&]g=ok/.test(location.search)) setTimeout(pullShared, 700);
+        })
+        .catch(function () {
+          checkTries++;
+          if (checkTries < 3) { setTimeout(verifyRole, checkTries === 1 ? 600 : 1200); return; }
+          if (roleFromCache()) {
+            applyAdminFast();
+            try { localStorage.setItem('app_user_role', 'admin'); } catch (e) {}
+          } else {
+            applyViewer(false);
+          }
+        });
+    }
+    if (cachedRole) { applyAdminFast(); try { localStorage.setItem('app_user_role', 'admin'); } catch (e) {} }
+    verifyRole();
   }
 
   /* فصل الربط أثناء الجلسة → يبقى مشاهداً فوراً */

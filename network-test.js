@@ -50,6 +50,11 @@ function box(label) {
 async function openDetails() {
   click($('[data-go="details"]'));
   await wait(60);
+  // التفاصيل صارت محمية بكلمة مرور — نُدخلها تلقائياً
+  if ($('#pwdModal') && $('#pwdModal').classList.contains('is-open')) {
+    ['2', '4', '6', '8'].forEach((k) => click($('#keypad button[data-key="' + k + '"]')));
+    await wait(400);
+  }
 }
 async function unlock(sel) {
   click($(sel));

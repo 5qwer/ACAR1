@@ -43,7 +43,7 @@
     <input type="text" id="forceFolderUrl" style="width:100%;padding:12px;background:#0a0e15;border:1px solid #4f8cff;border-radius:12px;color:#f2f6fb;margin-bottom:20px;" placeholder="https://drive.google.com/drive/folders/...">
     <button type="button" id="gateConnect" onclick="localStorage.setItem('app_shared_folder_url',document.getElementById('forceFolderUrl').value);window.startGoogleLogin?window.startGoogleLogin(event):(window.location.href='/api/google/login');" style="width:100%;padding:14px;background:linear-gradient(90deg,#4f8cff,#7aa8ff);color:#fff;border:none;border-radius:12px;font-weight:700;cursor:pointer;">ربط حساب Google Drive</button>
     <div id="gateError" style="display:none;margin-top:16px;padding:12px 14px;border-radius:12px;border:1px solid #f87171;background:rgba(248,113,113,.12);color:#fecaca;font-size:13px;line-height:1.9;text-align:right;"></div>
-    <button type="button" id="gateRetry" style="width:100%;margin-top:12px;padding:11px;background:transparent;border:1px solid #4f8cff;color:#9fadc2;border-radius:10px;cursor:pointer;font-weight:600;">إعادة المحاولة</button>
+    <button type="button" id="gateRetry" style="display:none;width:100%;margin-top:12px;padding:11px;background:transparent;border:1px solid #4f8cff;color:#9fadc2;border-radius:10px;cursor:pointer;font-weight:600;">إعادة المحاولة</button>
     <button type="button" id="gateDiag" style="margin-top:14px;width:100%;padding:10px;background:transparent;border:1px solid #33415a;border-radius:10px;color:#9fadc2;font-weight:600;font-size:12.5px;cursor:pointer;">🔍 فحص المفاتيح (لو بيقول إنها ناقصة)</button>
     <div id="gateDiagBox" style="display:none;margin-top:10px;padding:12px 14px;border-radius:12px;border:1px solid #33415a;background:#0d1420;color:#cbd5e1;font-size:12.5px;line-height:1.9;text-align:right;word-break:break-word;"></div>
   </div>
@@ -126,7 +126,7 @@
       </span>
       <span class="brand__text">
         <strong>نظام الإدارة</strong>
-        <small>الإصدار 1.0 · b20261031d</small>
+        <small>الإصدار 1.0 · b20261101a</small>
       </span>
     </button>
 
@@ -242,17 +242,27 @@
           <span class="card__arrow"><svg viewBox="0 0 24 24" class="ico"><use href="#ic-arrow"/></svg></span>
         </button>
 
-        <!-- 8) التفاصيل -->
-        <button class="card" data-go="details">
+        <!-- 8) المخازن -->
+        <button class="card" data-go="stores">
+          <span class="card__icon card__icon--cyan"><svg viewBox="0 0 24 24" class="ico"><use href="#ic-truck"/></svg></span>
+          <span class="card__body">
+            <span class="card__title">المخازن</span>
+            <span class="card__desc">دواخل وخوارج ومرتجع البضاعة — مربوطة بالموردين والعملاء والشركاء</span>
+          </span>
+          <span class="card__arrow"><svg viewBox="0 0 24 24" class="ico"><use href="#ic-arrow"/></svg></span>
+        </button>
+
+        <!-- 9) التفاصيل (محمية) -->
+        <button class="card card--locked" data-go="details">
           <span class="card__icon card__icon--amber"><svg viewBox="0 0 24 24" class="ico"><use href="#ic-coins"/></svg></span>
           <span class="card__body">
-            <span class="card__title">التفاصيل</span>
+            <span class="card__title">التفاصيل <svg viewBox="0 0 24 24" class="ico ico--lock"><use href="#ic-lock"/></svg></span>
             <span class="card__desc">الإجماليات المرتبطة: المستثمر، المدفوعات، الأرباح — بدون تكرار</span>
           </span>
           <span class="card__arrow"><svg viewBox="0 0 24 24" class="ico"><use href="#ic-arrow"/></svg></span>
         </button>
 
-        <!-- 9) العمليات -->
+        <!-- 10) العمليات -->
         <button class="card card--locked" data-go="operations">
           <span class="card__icon card__icon--violet"><svg viewBox="0 0 24 24" class="ico"><use href="#ic-exchange"/></svg></span>
           <span class="card__body">
@@ -710,6 +720,86 @@
               </tr>
             </thead>
             <tbody id="ledgerTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- المخازن -->
+    <section class="view" id="view-stores">
+      <div class="page-head">
+        <button class="back-btn" data-go="home"><svg viewBox="0 0 24 24" class="ico"><use href="#ic-back"/></svg> رجوع</button>
+        <div class="page-head__title">
+          <span class="card__icon card__icon--cyan sm"><svg viewBox="0 0 24 24" class="ico"><use href="#ic-truck"/></svg></span>
+          <div><h2>المخازن</h2><p>دواخل وخوارج ومرتجع البضاعة — مربوطة بالأطراف وبيحصل إشعار للنقص</p></div>
+        </div>
+      </div>
+
+      <div class="summary summary--4" id="storeSummary"></div>
+
+      <div class="panel" id="storeShortagePanel" hidden>
+        <h3 class="panel__title"><svg viewBox="0 0 24 24" class="ico"><use href="#ic-shield"/></svg> نقص في المخزون</h3>
+        <p class="panel__note" id="storeShortageText"></p>
+      </div>
+
+      <div class="panel">
+        <h3 class="panel__title"><svg viewBox="0 0 24 24" class="ico"><use href="#ic-plus"/></svg> حركة مخزن جديدة</h3>
+        <p class="panel__hint"><b>دواخل</b> = بضاعة دخلت من مورد (اسمه يتملق من الموردين المسجّلين ويتسجل في بروفايله). <b>خوارج</b> = بضاعة خرجت لعميل (يبيّن اسم العميل وشغلانه ويتسجل في بروفايله). <b>مرتجع</b> = بضاعة رجعت للمخزن.</p>
+
+        <form id="storeForm" class="form" novalidate>
+          <div class="form__row form__row--3">
+            <label class="field"><span>التاريخ *</span><input type="date" name="date" required /></label>
+            <label class="field"><span>النوع *</span>
+              <select name="type" id="storeType">
+                <option value="in">دواخل (بضاعة دخلت)</option>
+                <option value="out">خوارج (بضاعة خرجت)</option>
+                <option value="return">مرتجع (رجعت للمخزن)</option>
+              </select>
+            </label>
+            <label class="field"><span>اسم البضاعة *</span><input type="text" name="item" id="storeItem" list="storeItemList" autocomplete="off" required placeholder="مثال: بلاط محارة" />
+              <datalist id="storeItemList"></datalist>
+            </label>
+          </div>
+          <div class="form__row">
+            <label class="field"><span>الكمية *</span><input type="number" name="qty" min="0" step="any" required placeholder="0" /></label>
+            <label class="field"><span>السعر للوحدة *</span><input type="number" name="price" min="0" step="any" required placeholder="0" /></label>
+          </div>
+          <div class="form__row">
+            <label class="field"><span>الطرف *</span>
+              <select name="partyType" id="storePartyType">
+                <option value="supplier">مورد (أو تفصيلة)</option>
+                <option value="customer">عميل (طرف خوارج)</option>
+                <option value="partner">شريك</option>
+              </select>
+            </label>
+            <label class="field"><span>الاسم *</span>
+              <input type="text" name="partyName" id="storePartyName" list="storePartyList" autocomplete="off" required placeholder="يظهر الاسم من المسجّلين حسب النوع…" />
+              <datalist id="storePartyList"></datalist>
+            </label>
+          </div>
+          <div class="form__row">
+            <label class="field field--full"><span>الشغلانة (اختياري)</span><input type="text" name="work" autocomplete="off" placeholder="مثال: بلاط محارة — تُظهر في بروفايل العميل والشغلانة تبعه" /></label>
+          </div>
+          <div class="form__row">
+            <label class="field field--full"><span>ملاحظة</span><input type="text" name="note" placeholder="تفاصيل إضافية على الحركة…" /></label>
+          </div>
+          <div class="calc-grid">
+            <div class="calc-box"><span>إجمالي هذه الحركة</span><input type="text" name="storeTotal" readonly tabindex="-1" value="0" /></div>
+            <div class="calc-box calc-box--accent"><span>رصيد هذه البضاعة في المخزن</span><input type="text" name="storeItemBalance" readonly tabindex="-1" value="0" /></div>
+          </div>
+          <p class="form__error" id="storeError" hidden></p>
+          <div class="form__actions">
+            <button type="submit" class="btn btn--primary"><svg viewBox="0 0 24 24" class="ico"><use href="#ic-check"/></svg> حفظ الحركة</button>
+          </div>
+        </form>
+
+        <div class="table-wrap" style="margin-top:18px">
+          <table class="table" id="storeTable">
+            <thead><tr>
+              <th style="width:52px">#</th><th>التاريخ</th><th>النوع</th><th>البضاعة</th><th>الكمية</th>
+              <th>سعر الوحدة</th><th>الإجمالي</th><th>الطرف</th><th>الشغلانة</th><th>ملاحظة</th><th style="width:64px"><span class="sr-only">حذف</span></th>
+            </tr></thead>
+            <tbody id="storeTbody"></tbody>
           </table>
         </div>
       </div>
@@ -1265,6 +1355,7 @@
             <li><span class="card__icon card__icon--pink sm"><svg viewBox="0 0 24 24" class="ico"><use href="#ic-link"/></svg></span><div><b>الشركاء</b><small>يُقفل بكلمة المرور</small></div><svg viewBox="0 0 24 24" class="ico ico--lock"><use href="#ic-lock"/></svg></li>
             <li><span class="card__icon card__icon--blue sm"><svg viewBox="0 0 24 24" class="ico"><use href="#ic-group"/></svg></span><div><b>جمعيات</b><small>يُقفل بكلمة المرور</small></div><svg viewBox="0 0 24 24" class="ico ico--lock"><use href="#ic-lock"/></svg></li>
             <li><span class="card__icon card__icon--violet sm"><svg viewBox="0 0 24 24" class="ico"><use href="#ic-exchange"/></svg></span><div><b>العمليات</b><small>يُقفل بكلمة المرور — سجل التغييرات والتراجع</small></div><svg viewBox="0 0 24 24" class="ico ico--lock"><use href="#ic-lock"/></svg></li>
+            <li><span class="card__icon card__icon--amber sm"><svg viewBox="0 0 24 24" class="ico"><use href="#ic-coins"/></svg></span><div><b>التفاصيل</b><small>يُقفل بكلمة المرور — الإجماليات المرتبطة</small></div><svg viewBox="0 0 24 24" class="ico ico--lock"><use href="#ic-lock"/></svg></li>
           </ul>
           <p class="panel__note">تُحفظ كلمة المرور محلياً على هذا الجهاز فقط.</p>
         </div>
@@ -1274,7 +1365,7 @@
           <p class="panel__hint">فحص لكل أقسام التخزين: هل القيم سليمة ولا تالفة؟ وكم عملية مسجّلة في سجل العمليات؟ <b>الحماية المفعّلة:</b> أي محاولة استبدال قسم فيه بيانات بقسم فارغ من المزامنة بتتجاهل تلقائياً عشان البيانات ما تتمسحش من تلقاء نفسها.</p>
           <div id="dataSafetyBody"></div>
           <div class="form__actions" style="margin-top:14px">
-            <button type="button" class="btn btn--primary" data-go="operations">فتح سجل العمليات والتراجع</button>
+            <button type="button" class="btn btn--primary" data-go="operations" data-relock="1">فتح سجل العمليات والتراجع</button>
           </div>
         </div>
 
@@ -1305,7 +1396,7 @@
           <div class="export-grid" id="exportGrid"></div>
           <div class="form__actions" style="margin-top:16px">
             <button type="button" class="btn btn--primary" id="exportAllXlsx"><svg viewBox="0 0 24 24" class="ico"><use href="#ic-check"/></svg> التطبيق كاملاً (Excel)</button>
-            <button type="button" class="btn btn--ghost" id="exportAllPdf">ملخّص التطبيق (PDF)</button>
+            <button type="button" class="btn btn--ghost" id="exportAllPdf" title="ملف PDF واحد فيه كل أقسام التطبيق">كل التطبيق (PDF)</button>
           </div>
         </div>
 
@@ -1426,6 +1517,9 @@
         <span class="count-pill" id="networkPill">—</span>
       </div>
       <div class="panel panel--narrow" id="detailsNote"></div>
+      <div class="form__actions" style="margin-top:6px">
+        <button type="button" class="btn btn--ghost" data-export-all-pdf="1" title="ملف PDF واحد فيه كل بيانات التطبيق: الملخص وكل الأقسام والمخازن والإجماليات">📄 كل التطبيق (PDF) — كل البيانات في ملف واحد</button>
+      </div>
       <div id="detailsBody"></div>
     </section>
 
@@ -1610,7 +1704,28 @@
 <!-- ===== تنبيهات ===== -->
 <div class="toast" id="toast" role="status" aria-live="polite"><svg viewBox="0 0 24 24" class="ico"><use href="#ic-check"/></svg><span></span></div>
 
-<script src="export.js"></script>
+<script>
+/* إنقاذ تحميل الملفات: الاستضافة بترجّع 502 متقطع، فلو أي ملف فشل تحميله
+   نعيد طلبه تلقائياً بدل ما الصفحة تفضل ميتة. */
+window.__retryAsset = function (el, name) {
+  if (!el) return;
+  var n = Number(el.getAttribute('data-retry') || 0);
+  if (n >= 5) {
+    var box = document.getElementById('bootHelp');
+    if (box) box.style.display = 'flex';
+    return;
+  }
+  el.setAttribute('data-retry', n + 1);
+  el.onload = function () {
+    var box = document.getElementById('bootHelp');
+    if (box && name === 'app.js') box.style.display = 'none';
+  };
+  setTimeout(function () {
+    el.src = name + '?retry=' + (n + 1) + '-' + Date.now();
+  }, 250 * (n + 1));
+};
+</script>
+<script src="export.js" onerror="__retryAsset(this,'export.js')"></script>
 <script>
 /* حارس الشاشة: أي لحظة مفيش فيها شاشة مفعّلة، الرئيسية بترجع فورًا.
    الغرض: الشاشة الفاضية تحت الهيدر تبقى مستحيلة حتى لو app.js وقع في النص.
@@ -1659,17 +1774,60 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
   else start();
+
+  /* مراقب الإقلاع: الاستضافة بترجّع 502 كصفحة خطأ بدل ملف JS، والمتصفح
+     بيعتبرها تحميل ناجح ثم يفشل في تنفيذها — فمافيش onerror. هنا نتأكد
+     إن app.js اتنفّذ فعلاً، وإلا نعيد تحميله بأنفسنا، ولو فشل نعمل تحديث
+     واحد نظيف، وبعدها نعرض بطاقة الإنقاذ بدل صفحة ميتة. */
+  var rescueTries = 0;
+  function rescue() {
+    if (window.__appBooted) {
+      try { sessionStorage.removeItem('app_boot_retry'); } catch (e) {}
+      return;
+    }
+    if (!window.__appLoaded && rescueTries < 4) {
+      rescueTries++;
+      var s = document.createElement('script');
+      s.src = 'app.js?rescue=' + rescueTries + '-' + Date.now();
+      s.async = false;
+      s.onload = function () { setTimeout(rescue, 1200); };
+      document.body.appendChild(s);
+      return;
+    }
+    var tried = 0;
+    try { tried = Number(sessionStorage.getItem('app_boot_retry') || 0); } catch (e) {}
+    if (tried < 1) {
+      try { sessionStorage.setItem('app_boot_retry', String(tried + 1)); } catch (e) {}
+      location.replace(location.pathname + '?boot=' + Date.now());
+      return;
+    }
+    var box = document.getElementById('bootHelp');
+    if (box) box.style.display = 'flex';
+  }
+  setTimeout(rescue, 2200);
+  setTimeout(rescue, 6000);
 })();
 </script>
-<script src="app.js"></script>
-<script src="auth-gate-addon.js"></script>
+<script src="app.js" onerror="__retryAsset(this,'app.js')"></script>
+<script src="auth-gate-addon.js" onerror="__retryAsset(this,'auth-gate-addon.js')"></script>
 <script>
   /* الشاشة الإلزامية: تظهر حتى يتم ربط حساب Google */
   var gate = document.getElementById('forceAuthGate');
-  if (gate) gate.style.display = 'flex';
+  /* إقلاع سريع: لو الحساب مربوط ومحفوظ (أدمن) أو إحنا في بيئة موثوقة
+     (نسخة سطح المكتب/الأندرويد) نخفي الشاشة فوراً بدون أي طلب شبكة. */
+  var gateTrustedFast = false;
+  try {
+    var __role = JSON.parse(localStorage.getItem('app_role_cache') || 'null');
+    var __trusted = (window.APP_TRUSTED_RUNTIME === true) ||
+      (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    gateTrustedFast = !!__trusted || (!!__role && __role.role === 'admin');
+  } catch (eFast) {}
+  if (gate && !gateTrustedFast) gate.style.display = 'flex';
   if (typeof fetch === 'function') {
     function gateStatusError(msg) {
       var e = document.getElementById('gateError');
+      var retryBtn = document.getElementById('gateRetry');
+      if (retryBtn) retryBtn.style.display = 'block';
       if (!e) return;
       e.style.display = 'block';
       e.textContent = msg;

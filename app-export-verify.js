@@ -1,5 +1,7 @@
 /* يشغّل التطبيق نفسه في jsdom مع canvas حقيقي ويصدر Excel/PDF فعليين للتحقق */
 const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const { JSDOM, VirtualConsole } = require('jsdom');
 const { createCanvas } = require('canvas');
 
@@ -61,7 +63,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await wait(60);
   if ($('#exportToDevice')) click($('#exportToDevice'));
   await wait(120);
-  fs.writeFileSync('/tmp/app-customers.xlsx', captured);
+  fs.writeFileSync(path.join(os.tmpdir(), 'app-customers.xlsx'), captured);
   console.log('  bytes:', captured.length);
 
   console.log('\n[2] Excel — الملف الكامل');
@@ -69,7 +71,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await wait(60);
   if ($('#exportToDevice')) click($('#exportToDevice'));
   await wait(150);
-  fs.writeFileSync('/tmp/app-full.xlsx', captured);
+  fs.writeFileSync(path.join(os.tmpdir(), 'app-full.xlsx'), captured);
   console.log('  bytes:', captured.length);
 
   console.log('\n[3] PDF — قسم العملاء (canvas حقيقي)');
@@ -80,7 +82,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   if ($('#exportToDevice') && $('#exportModal').classList.contains('is-open')) click($('#exportToDevice'));
   await wait(200);
   if (captured) {
-    fs.writeFileSync('/tmp/app-customers.pdf', captured);
+    fs.writeFileSync(path.join(require('os').tmpdir(), 'app-customers.pdf'), captured);
     console.log('  bytes:', captured.length);
   } else {
     console.log('  ✗ لم يتم توليد PDF:', $('#toast span') ? $('#toast span').textContent : '');
@@ -106,7 +108,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   if ($('#exportToDevice') && $('#exportModal').classList.contains('is-open')) click($('#exportToDevice'));
   await wait(200);
   if (captured) {
-    fs.writeFileSync('/tmp/app-supplier.pdf', captured);
+    fs.writeFileSync(path.join(require('os').tmpdir(), 'app-supplier.pdf'), captured);
     console.log('  bytes:', captured.length);
   }
   const supPages = canvases.filter((c) => c.width > 100 && c.height > 100);
@@ -122,7 +124,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   if ($('#exportToDevice') && $('#exportModal').classList.contains('is-open')) click($('#exportToDevice'));
   await wait(150);
   if (captured) {
-    fs.writeFileSync('/tmp/app-supplier.xlsx', captured);
+    fs.writeFileSync(path.join(require('os').tmpdir(), 'app-supplier.xlsx'), captured);
     console.log('  bytes:', captured.length);
   }
 
@@ -136,7 +138,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   if ($('#exportToDevice') && $('#exportModal').classList.contains('is-open')) click($('#exportToDevice'));
   await wait(200);
   if (captured) {
-    fs.writeFileSync('/tmp/app-ledger.pdf', captured);
+    fs.writeFileSync(path.join(require('os').tmpdir(), 'app-ledger.pdf'), captured);
     console.log('  bytes:', captured.length);
   }
   canvases.filter((c) => c.width > 100 && c.height > 100).forEach((cv, i) => {

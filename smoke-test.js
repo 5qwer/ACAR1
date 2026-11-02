@@ -1,4 +1,6 @@
 const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const { JSDOM, VirtualConsole } = require('jsdom');
 
 const errors = [];
@@ -529,10 +531,10 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   click($('[data-go="settings"]'));
   ok('شاشة الإعدادات فتحت', $('#view-settings').classList.contains('is-active'));
   ok('محرك ExportKit محمّل', typeof window.ExportKit === 'object' && typeof window.ExportKit.buildXlsx === 'function');
-  ok('شبكة التصدير فيها 6 خانات', $$('#exportGrid .export-item').length === 6,
+  ok('شبكة التصدير فيها 7 خانات (المخازن الجديدة منهم)', $$('#exportGrid .export-item').length === 7,
      'n=' + $$('#exportGrid .export-item').length);
   ok('كل خانة فيها Excel و PDF',
-     $$('#exportGrid [data-kind="xlsx"]').length === 6 && $$('#exportGrid [data-kind="pdf"]').length === 6);
+     $$('#exportGrid [data-kind="xlsx"]').length === 7 && $$('#exportGrid [data-kind="pdf"]').length === 7);
   ok('زرار «التطبيق كاملاً Excel» موجود', !!$('#exportAllXlsx'));
   ok('زرار «ملخّص PDF» موجود', !!$('#exportAllPdf'));
   ok('عنوان إعادة التوجيه مكتوب في التعليمات',
@@ -559,7 +561,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
      'first=' + xlsxBuf.slice(0, 2).toString('hex'));
   ok('حجم الملف معقول', xlsxBuf.length > 800, 'len=' + xlsxBuf.length);
   ok('نوع MIME لملف xlsx', capturedBlob.type.indexOf('sheetml') > -1, capturedBlob.type);
-  fs.writeFileSync('/tmp/ui-export.xlsx', xlsxBuf);
+  fs.writeFileSync(path.join(require('os').tmpdir(), 'ui-export.xlsx'), xlsxBuf);
 
   capturedBlob = null;
   click($('#exportAllXlsx'));
@@ -569,14 +571,14 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const allBuf = capBytes();
   ok('ملف التطبيق كاملاً أكبر من ملف القسم', allBuf.length > xlsxBuf.length,
      'all=' + allBuf.length + ' vs ' + xlsxBuf.length);
-  fs.writeFileSync('/tmp/ui-export-all.xlsx', allBuf);
+  fs.writeFileSync(path.join(require('os').tmpdir(), 'ui-export-all.xlsx'), allBuf);
 
   capturedBlob = null;
   click($('[data-export="ledger"][data-kind="xlsx"]'));
   await wait(30);
   click($('#exportToDevice'));
   await wait(30);
-  fs.writeFileSync('/tmp/ui-export-ledger.xlsx', capBytes());
+  fs.writeFileSync(path.join(require('os').tmpdir(), 'ui-export-ledger.xlsx'), capBytes());
   ok('تصدير قسم الدواخل والخوارج نجح', $('#toast').textContent.indexOf('تم تجهيز') > -1, $('#toast').textContent);
 
   capturedBlob = null;
@@ -606,14 +608,14 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     ok('نوع MIME هو pdf', capturedBlob.type === 'application/pdf', capturedBlob.type);
     ok('حجم PDF معقول', pdfBuf.length > 5000, 'len=' + pdfBuf.length);
     ok('التوست بيقول تم التجهيز', $('#toast').textContent.indexOf('تم تجهيز') > -1, $('#toast').textContent);
-    fs.writeFileSync('/tmp/ui-export.pdf', pdfBuf);
+    fs.writeFileSync(path.join(require('os').tmpdir(), 'ui-export.pdf'), pdfBuf);
 
     capturedBlob = null;
     click($('#exportAllPdf'));
     await wait(150);
     if ($('#exportModal').classList.contains('is-open')) click($('#exportToDevice'));
     await wait(150);
-    fs.writeFileSync('/tmp/ui-export-summary.pdf', capBytes());
+    fs.writeFileSync(path.join(require('os').tmpdir(), 'ui-export-summary.pdf'), capBytes());
     ok('ملف ملخّص التطبيق PDF اتبنى', capBytes().slice(0, 5).toString() === '%PDF-', 'n=' + capBytes().length);
 
     /* PDF متعدد الصفحات مباشرة من المحرّك */
@@ -627,7 +629,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
       { jpeg: jpg, width: 300, height: 200 },
       { jpeg: jpg, width: 300, height: 200 }
     ]);
-    fs.writeFileSync('/tmp/ui-multi.pdf', Buffer.from(multi));
+    fs.writeFileSync(path.join(require('os').tmpdir(), 'ui-multi.pdf'), Buffer.from(multi));
     ok('PDF متعدد الصفحات اتبنى', !!multi && multi.length > 0, 'len=' + (multi && multi.length));
     ok('مفيش أخطاء في توليد PDF', errors.length === 0, errors.join(' | '));
   } else {
