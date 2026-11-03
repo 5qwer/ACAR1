@@ -115,12 +115,18 @@
       // Keep drive connect buttons visible for all users (gate + settings)
       if (el.id && (el.id === 'driveConnect' || el.id === 'gateConnect')) continue;
       if (sensitive(el)) continue;
-      if (el.style.display !== 'none') el.style.display = 'none';
+      if (el.style.display !== 'none') {
+        el.style.display = 'none';
+        try { el.setAttribute('data-viewer-hidden', '1'); } catch (e0) {}
+      }
     }
     var btns = document.querySelectorAll('button, label.btn, label[for], input[type="file"]');
     for (var j = 0; j < btns.length; j++) {
       var b = btns[j];
-      if (blocked(b) && !sensitive(b) && b.style.display !== 'none') b.style.display = 'none';
+      if (blocked(b) && !sensitive(b) && b.style.display !== 'none') {
+        b.style.display = 'none';
+        try { b.setAttribute('data-viewer-hidden', '1'); } catch (e1) {}
+      }
     }
   }
 
@@ -295,6 +301,31 @@
     var bar = document.getElementById('viewerDriveBar');
     if (bar) bar.style.display = 'none';
   }
+
+  /* رجّع أي زر خفيناه في وضع المشاهد (لو الدور اتغيّر في نفس الجلسة) */
+  function restoreAllControls() {
+    try {
+      var els = document.querySelectorAll('[data-viewer-hidden]');
+      for (var i = 0; i < els.length; i++) {
+        els[i].style.display = '';
+        els[i].removeAttribute('data-viewer-hidden');
+      }
+    } catch (e) {}
+  }
+
+  /* وضع المالك المحلي:
+     التطبيق كل بياناته على الجهاز نفسه، وعدم ربط Google Drive مش سبب
+     نقفل الكتابة — القفل ده هو اللي كان بيحوّل التطبيق لقراءة فقط
+     على أي جلسة جديدة (status = غير متصل). القفل يبقى فقط لو فيه
+     حساب Google متصل فعلاً ومش المالك. */
+  function applyAdminLocal() {
+    VIEWER = false;
+    document.documentElement.removeAttribute('data-viewer-mode');
+    var bar = document.getElementById('viewerDriveBar');
+    if (bar) bar.style.display = 'none';
+    try { localStorage.setItem('app_user_role', 'admin'); } catch (e) {}
+    restoreAllControls();
+  }
   if (typeof fetch === 'function') {
     if (TRUSTED) {
       applyAdminFast();
@@ -320,7 +351,8 @@
             else localStorage.removeItem(ROLE_CACHE_KEY);
           } catch (e) {}
           if (isAdmin) applyAdminFast();
-          else applyViewer(connected);
+          else if (connected) applyViewer(true);   /* حساب تاني متصل → مشاهد */
+          else applyAdminLocal();                   /* مش مربوط = مالك محلي، الكتابة مسموحة */
           if (connected && /[?&]g=ok/.test(location.search)) setTimeout(pullShared, 700);
         })
         .catch(function () {
@@ -330,7 +362,7 @@
             applyAdminFast();
             try { localStorage.setItem('app_user_role', 'admin'); } catch (e) {}
           } else {
-            applyViewer(false);
+            applyAdminLocal();   /* تعذّر الفحص مش معناه منع الكتابة */
           }
         });
     }
@@ -341,6 +373,8 @@
   /* فصل الربط أثناء الجلسة → يبقى مشاهداً فوراً */
   document.addEventListener('click', function (e) {
     var d = e.target && e.target.closest && e.target.closest('#driveDisconnect');
-    if (d) applyViewer(false);
+    /* مشاهد فاصل الربط يفضل مشاهد (مايترقّاش لمالك بالفصل)،
+       والمالك المحلي يفضل مالك. */
+    if (d) { if (VIEWER) applyViewer(false); else applyAdminLocal(); }
   }, true);
 })();
