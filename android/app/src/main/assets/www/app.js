@@ -851,11 +851,20 @@
       sendSum += Number(s.total != null ? s.total : (Number(s.qty || 0) * Number(s.price || 0)));
     });
     var paidByUs = Number(c.paidByUs || 0) + led.out;
+    /* حركات المخازن المرتبطة بالعميل: خوارج/توريد له يزيد المستحق، والمرتجع يقلله */
+    var storeSends = Array.isArray(c.storeSends) ? c.storeSends : [];
+    var storeCharge = 0, storeReturn = 0;
+    storeSends.forEach(function (s) {
+      var amt = Number(s.total != null ? s.total : (Number(s.qty || 0) * Number(s.price || 0)));
+      if (s.kind === 'return') storeReturn += Math.abs(amt); else storeCharge += amt;
+    });
+    if (storeCharge || storeReturn) rest = Math.max(rest + storeCharge - storeReturn, 0);
     return {
       total: total, down: down, due: due, later: later,
       pays: pays, paidPays: paidPays, paid: paid, rest: rest,
       n: n, unit: unit,
       sends: sends, sendSum: sendSum, paidByUs: paidByUs,
+      storeSends: storeSends, storeCharge: storeCharge, storeReturn: storeReturn,
       ledIn: led.in, ledOut: led.out, ledList: led.list,
       sendBal: Math.max(paidByUs - sendSum, 0)
     };
@@ -7663,6 +7672,61 @@
     return getPartners().map(function (p) { return p.name; });
   }
 
+  /* شغلانات الطرف المختار — تختار من الموجود أو تكتب شغلانة جديدة */
+  function partyWorks(type, name) {
+    var nm = String(name || '').trim();
+    var out = [], seen = {};
+    var add = function (w) {
+      w = String(w || '').trim();
+      if (!w || seen[w]) return;
+      seen[w] = true; out.push(w);
+    };
+    if (!nm) return out;
+    var byName = function (list) {
+      return (list || []).filter(function (x) { return String(x.name || '').trim() === nm; })[0];
+    };
+    if (type === 'customer') {
+      var c = byName(getCustomers());
+      if (c) {
+        (c.sends || []).forEach(function (s) { add(s.work); });
+        (c.storeSends || []).forEach(function (s) { add(s.work); });
+        (c.works || []).forEach(function (w) { add(typeof w === 'string' ? w : (w && w.name)); });
+      }
+    } else if (type === 'supplier') {
+      var s = byName(getSuppliers());
+      if (s) (s.tx || []).forEach(function (t) { add(t.work); });
+    } else {
+      var p = byName(getPartners());
+      if (p) (p.storeTakes || []).forEach(function (t) { add(t.work); });
+    }
+    return out;
+  }
+
+  /* تسجيل الشغلانة الجديدة عند الطرف حتى تظهر له بعد كده */
+  function registerPartyWork(doc) {
+    try {
+      var w = String(doc.work || '').trim();
+      if (!w || !doc.partyName || doc.partyType !== 'customer') return;
+      var cs = getCustomers();
+      var i = cs.map(function (c) { return String(c.name || '').trim(); }).indexOf(String(doc.partyName).trim());
+      if (i === -1) return;
+      var ws = Array.isArray(cs[i].works) ? cs[i].works.slice() : [];
+      if (ws.indexOf(w) === -1) {
+        ws.push(w);
+        cs[i].works = ws;
+        saveCustomers(cs);
+      }
+    } catch (e) {}
+  }
+
+  function fillStoreWorkList() {
+    var wl = $('#storeWorkList');
+    if (!wl) return;
+    var pt = $('#storePartyType'), pn = $('#storePartyName');
+    var list = partyWorks(pt ? pt.value : 'customer', pn ? pn.value : '');
+    wl.innerHTML = list.map(function (w) { return '<option value="' + esc(w) + '"></option>'; }).join('');
+  }
+
   function fillStoreSuggests() {
     var sel = $('#storePartyType');
     var t = sel ? sel.value : 'supplier';
@@ -7684,6 +7748,7 @@
         return '<option value="' + esc(nm) + '"></option>';
       }).join('');
     }
+    fillStoreWorkList();
     renderStoreChips();
   }
 
@@ -7716,6 +7781,32 @@
   /* حركة يفعلها كل نوع: هي تحسب على المورد أو العميل والشريك في بروفايله تلقائياً */
   function storeLinkToParty(doc) {
     try {
+      /* مرتجع بضاعة للعميل: يقلل المستحق عليه في بروفايله */
+      if (doc.type === 'return' && doc.partyType === 'customer' && doc.partyName) {
+        var crs = getCustomers();
+        var cri = crs.map(function (c) { return String(c.name || '').trim(); }).indexOf(String(doc.partyName).trim());
+        if (cri > -1) {
+          crs[cri].storeSends = (crs[cri].storeSends || []).concat([{
+            date: doc.date, item: doc.item, qty: doc.qty, price: doc.price, total: doc.total,
+            work: doc.work || '', note: doc.note || '', via: 'stores',
+            kind: 'return', storeDocId: doc.id || ''
+          }]);
+          saveCustomers(crs);
+        }
+      }
+      /* مرتجع بضاعة لمورد: يقلل اللي علينا له */
+      if (doc.type === 'return' && doc.partyType === 'supplier' && doc.partyName) {
+        var srs = getSuppliers();
+        var sri = srs.map(function (s) { return String(s.name || '').trim(); }).indexOf(String(doc.partyName).trim());
+        if (sri > -1) {
+          srs[sri].tx = (srs[sri].tx || []).concat([{
+            date: doc.date, no: '',
+            desc: 'مرتجع بضاعة (المخازن): ' + doc.item + ' — كمية ' + doc.qty,
+            incoming: -Math.abs(Number(doc.total || 0)), paid: 0, via: 'stores', storeDocId: doc.id || ''
+          }]);
+          saveSuppliers(srs);
+        }
+      }
       if (doc.type === 'in' && doc.partyType === 'supplier' && doc.partyName) {
         var sups = getSuppliers();
         var si = sups.map(function (s) { return String(s.name || '').trim(); }).indexOf(String(doc.partyName).trim());
@@ -7867,6 +7958,7 @@
       saveStores(v);
       storeLinkToParty(doc);
       applyStoreMoney(doc);
+      registerPartyWork(doc);
 
       storeForm.reset();
       f.date.value = todayISO();
