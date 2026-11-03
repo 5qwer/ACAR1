@@ -96,7 +96,27 @@ const ok = (n, c, x) => { if (c) { pass++; console.log('  PASS  ' + n); } else {
   await wait(300);
   ok('تصدير Excel اشتغل', done === true);
 
-  console.log('\n[5] لا أخطاء');
+  console.log('\n[5] فترة التحصيل');
+  window.localStorage.setItem('app_customers', JSON.stringify([{
+    name: 'عميل أ', total: 2000, down: 500, balance: 2000,
+    payments: [{ date: '2026-10-10', amount: 100 }, { date: '2026-11-01', amount: 300 }, { date: '2026-11-05', amount: 200 }]
+  }]));
+  $('[data-go="collection"]').click();
+  await wait(500);
+  const cbar = $('[data-period="collection"]');
+  ok('شريط الفترة في التحصيل موجود', !!cbar);
+  window.__period.setRange('collection', '2026-11-01', '2026-11-30');
+  await wait(200);
+  const cc = window.__period.compute('collection');
+  ok('تحصيل الفترة = 500', cc.inc === 500, 'inc=' + cc.inc);
+  ok('عدد الدفعات = 2', cc.count === 2, 'count=' + cc.count);
+  ok('مقدمات العملاء = 500', cc.down === 500, 'down=' + cc.down);
+  ok('المتبقي على العملاء = 900', cc.close === 900, 'close=' + cc.close);
+  const csum = ($('#periodSum-collection') || {}).textContent || '';
+  ok('الملخص بيعرض تحصيل الفترة', csum.indexOf('500') > -1, csum.slice(0, 100));
+  ok('تصدير فترة التحصيل اشتغل', window.__period.exportPeriod('collection', 'xlsx') === true);
+
+  console.log('\n[6] لا أخطاء');
   ok('مفيش أخطاء تشغيل', errors.length === 0, errors.slice(0, 2).join(' | '));
 
   console.log('\n========================================');

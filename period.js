@@ -11,8 +11,49 @@
 
   var TARGETS = [
     { id: 'ledger', label: 'الدواخل والخوارج', view: 'view-ledger', tbody: 'ledgerTbody', anchor: 'ledgerSummary' },
-    { id: 'stores', label: 'المخازن', view: 'view-stores', tbody: 'storeTbody', anchor: 'storeSummary' }
+    { id: 'stores', label: 'المخازن', view: 'view-stores', tbody: 'storeTbody', anchor: 'storeSummary' },
+    { id: 'collection', label: 'التحصيل', view: 'view-collection', anchor: 'collectionSummary', custom: 'collection' }
   ];
+
+  /* ---------- التحصيل: دفعات العملاء خلال الفترة (من البيانات مش من الجدول) ---------- */
+  function customersRaw() {
+    try { return JSON.parse(localStorage.getItem('app_customers') || '[]') || []; } catch (e) { return []; }
+  }
+
+  function collectionPays(st) {
+    var out = [];
+    customersRaw().forEach(function (c) {
+      var name = String(c.name || '').trim();
+      var run = Number(c.total || 0) > 0
+        ? Math.max(Number(c.total || 0) - Number(c.down || 0), 0)
+        : Math.max(Number(c.balance || 0), 0);
+      (c.payments || []).forEach(function (p, i) {
+        var iso = isoFrom(p.date) || String(p.date || '');
+        var amt = Number(p.amount || 0);
+        run = Math.max(run - amt, 0);
+        if (!inRange(iso, st)) return;
+        out.push({ name: name, date: p.date || '', iso: iso, amount: amt, note: p.note || '', no: p.no || (i + 1), restAfter: run });
+      });
+    });
+    out.sort(function (a, b) { return String(b.iso).localeCompare(String(a.iso)); });
+    return out;
+  }
+
+  function computeCollection(st) {
+    var pays = collectionPays(st);
+    var sum = 0;
+    pays.forEach(function (p) { sum += p.amount; });
+    var down = 0, rest = 0, cnt = 0;
+    customersRaw().forEach(function (c) {
+      var d = Number(c.down || 0);
+      down += d;
+      var paid = (c.payments || []).reduce(function (n, p) { return n + Number(p.amount || 0); }, 0);
+      var base = Number(c.total || 0) > 0 ? Number(c.total || 0) : Number(c.balance || 0);
+      rest += Math.max(base - d - paid, 0);
+      cnt++;
+    });
+    return { custom: 'collection', inc: sum, out: 0, count: pays.length, open: 0, close: rest, down: down, customers: cnt, pays: pays, st: st };
+  }
 
   var KEY = 'app_period_';
   var AR_NUM = '٠١٢٣٤٥٦٧٨٩';
@@ -93,6 +134,7 @@
   function compute(id) {
     var t = TARGETS.filter(function (x) { return x.id === id; })[0];
     var st = state(id);
+    if (t && t.custom === 'collection') return computeCollection(st);
     var all = rowsOf(t);
     var res = { inc: 0, out: 0, count: 0, open: 0, close: 0, st: st, all: all };
     all.forEach(function (r) {
@@ -137,6 +179,13 @@
   }
 
   function sumHTML(t, res) {
+    if (res.custom === 'collection') {
+      return '<span class="period-chip period-chip--in">تحصيل الفترة: <b>' + money(res.inc) + '</b></span>' +
+        '<span class="period-chip">عدد الدفعات: <b>' + res.count + '</b></span>' +
+        '<span class="period-chip">مقدمات العملاء: <b>' + money(res.down) + '</b></span>' +
+        '<span class="period-chip period-chip--out">المتبقي على العملاء: <b>' + money(res.close) + '</b></span>' +
+        '<span class="period-chip">' + res.customers + ' عميل · ' + rangeLabel(res.st) + '</span>';
+    }
     return '<span class="period-chip period-chip--in">دواخل: <b>' + money(res.inc) + '</b></span>' +
       '<span class="period-chip period-chip--out">خوارج: <b>' + money(res.out) + '</b></span>' +
       '<span class="period-chip period-chip--net">الصافي: <b>' + money(res.inc - res.out) + '</b></span>' +
@@ -160,7 +209,7 @@
     var t = TARGETS.filter(function (x) { return x.id === id; })[0];
     if (!t) return;
     var st = state(id);
-    rowsOf(t).forEach(function (r) { r.tr.hidden = !inRange(r.date, st); });
+    if (!t.custom) rowsOf(t).forEach(function (r) { r.tr.hidden = !inRange(r.date, st); });
     var box = document.getElementById('periodSum-' + id);
     if (box) box.innerHTML = sumHTML(t, compute(id));
   }
@@ -206,8 +255,22 @@
     return ths.map(function (th) { return (th.textContent || '').trim(); });
   }
 
+  function collectionSheet(id) {
+    var res = compute(id);
+    var rows = [['العميل', 'التاريخ', 'المبلغ', 'المرة', 'المتبقي بعدها', 'ملاحظة']];
+    res.pays.forEach(function (p) {
+      rows.push([p.name, p.date, p.amount, p.no, p.restAfter, p.note]);
+    });
+    rows.push(['إجمالي تحصيل الفترة', '', money(res.inc), '', '', '']);
+    rows.push(['عدد الدفعات', '', String(res.count), '', '', '']);
+    rows.push(['مقدمات العملاء', '', money(res.down), '', '', '']);
+    rows.push(['المتبقي على العملاء', '', money(res.close), '', '', '']);
+    return { name: 'التحصيل', title: 'التحصيل', subtitle: rangeLabel(res.st), rows: rows };
+  }
+
   function sheetFor(id) {
     var t = TARGETS.filter(function (x) { return x.id === id; })[0];
+    if (t && t.custom === 'collection') return collectionSheet(id);
     var rows = visibleRows(id).map(function (r) {
       return $$('td', r.tr).map(function (td) { return (td.textContent || '').trim(); });
     });
@@ -225,6 +288,22 @@
   function reportFor(id) {
     var t = TARGETS.filter(function (x) { return x.id === id; })[0];
     var res = compute(id);
+    if (res.custom === 'collection') {
+      return {
+        title: 'التحصيل — تقرير فترة',
+        subtitle: rangeLabel(res.st),
+        columns: ['العميل', 'التاريخ', 'المبلغ', 'المرة', 'المتبقي بعدها', 'ملاحظة'],
+        rows: res.pays.map(function (p) { return [p.name, p.date, p.amount, p.no, p.restAfter, p.note]; }),
+        moneyCols: [2],
+        totalRow: false,
+        summary: [
+          { label: 'تحصيل الفترة', value: money(res.inc) },
+          { label: 'عدد الدفعات', value: String(res.count) },
+          { label: 'مقدمات العملاء', value: money(res.down) },
+          { label: 'المتبقي على العملاء', value: money(res.close) }
+        ]
+      };
+    }
     var rows = visibleRows(id).map(function (r) {
       return $$('td', r.tr).map(function (td) { return (td.textContent || '').trim(); });
     });
