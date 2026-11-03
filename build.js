@@ -15,6 +15,7 @@ const FILES = [
   'styles.css',
   'app.js',
   'app-lock.js',
+  'splash.js',
   'export.js',
   'auth-gate-addon.js',
   'manifest.webmanifest',
