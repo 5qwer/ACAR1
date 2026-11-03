@@ -62,7 +62,7 @@ const stores = () => JSON.parse(window.localStorage.getItem('app_stores') || '{"
   const sf = $('#storeForm').elements;
   sf.date.value = '2026-11-01';
   sf.type.value = 'in';
-  sf.item.value = 'بلاط محارة';
+  $('#storeItem').value = 'بلاط محارة';
   sf.qty.value = '100';
   sf.price.value = '50';
   sf.partyType.value = 'supplier';
@@ -89,7 +89,7 @@ const stores = () => JSON.parse(window.localStorage.getItem('app_stores') || '{"
   console.log('\n[3] خوارج: نفس البضاعة للعميل');
   sf.date.value = '2026-11-02';
   sf.type.value = 'out';
-  sf.item.value = 'بلاط محارة';
+  $('#storeItem').value = 'بلاط محارة';
   sf.qty.value = '40';
   sf.price.value = '60';
   $('#storePartyType').value = 'customer';
@@ -113,7 +113,7 @@ const stores = () => JSON.parse(window.localStorage.getItem('app_stores') || '{"
   console.log('\n[4] إشعار النقص');
   sf.date.value = '2026-11-03';
   sf.type.value = 'out';
-  sf.item.value = 'بلاط محارة';
+  $('#storeItem').value = 'بلاط محارة';
   sf.qty.value = '200';
   sf.price.value = '55';
   $('#storePartyType').value = 'customer';
@@ -130,7 +130,7 @@ const stores = () => JSON.parse(window.localStorage.getItem('app_stores') || '{"
   console.log('\n[5] مرتجع');
   sf.date.value = '2026-11-04';
   sf.type.value = 'return';
-  sf.item.value = 'سيراميك أرضية';
+  $('#storeItem').value = 'سيراميك أرضية';
   sf.qty.value = '10';
   sf.price.value = '30';
   $('#storePartyType').value = 'customer';

@@ -7437,9 +7437,11 @@
       });
     }
     if (!names.length) names = [DEFAULT_STORE_NAME];
-    docs.forEach(function (d) {
+    docs.forEach(function (d, i) {
       var s = String(d.store || '').trim();
       if (!s || names.indexOf(s) === -1) d.store = names[0];
+      /* معرّف ثابت لكل حركة — الحذف بيه ما يتلغبطش مع الفلترة */
+      if (!d.id) d.id = 'st' + String(d.date || '') + '|' + i + '|' + String(d.item || '').slice(0, 8);
     });
     return { stores: names, docs: docs };
   }
@@ -7526,6 +7528,67 @@
 
   var storeFilter = 'all';   /* المخزن المُختار للعرض */
 
+  /* شرائح المخازن + قوائم الاختيار (الفلتر / نموذج الحركة / وجهة المورد) */
+  function renderStoreChips() {
+    var names = getStoreNames();
+    var box = $('#storeChips');
+    if (box) {
+      box.innerHTML = names.map(function (nm) {
+        var cnt = storeDocs(nm).length;
+        return '<span class="store-chip' + (storeFilter === nm ? ' is-on' : '') + '" data-store-pick="' + esc(nm) + '">' +
+          esc(nm) + ' <small>(' + cnt + ')</small>' +
+          '<button type="button" data-store-del="' + esc(nm) + '" title="حذف المخزن">&times;</button></span>';
+      }).join('');
+    }
+    var opts = names.map(function (nm) { return '<option value="' + esc(nm) + '">' + esc(nm) + '</option>'; }).join('');
+    var flt = $('#storeFilter');
+    if (flt) {
+      var cur = storeFilter;
+      flt.innerHTML = '<option value="all">كل المخازن</option>' + opts;
+      flt.value = (cur && (cur === 'all' || names.indexOf(cur) > -1)) ? cur : 'all';
+      storeFilter = flt.value;
+    }
+    ['#storePick', '#supStorePick'].forEach(function (sel) {
+      var el = $(sel);
+      if (!el) return;
+      var keep = el.value;
+      el.innerHTML = opts;
+      if (keep && names.indexOf(keep) > -1) el.value = keep;
+    });
+  }
+
+  /* إضافة مخزن جديد بالاسم */
+  function addStore(name) {
+    name = String(name || '').trim();
+    if (!name) { toast('اكتب اسم المخزن الأول', true); return false; }
+    if (name.length > 40) { toast('اسم المخزن طويل — 40 حرف كحد أقصى', true); return false; }
+    var v = getStores();
+    if (v.stores.indexOf(name) > -1) { toast('المخزن «' + name + '» موجود بالفعل', true); return false; }
+    v.stores.push(name);
+    saveStores(v);
+    storeFilter = name;
+    renderStoreChips();
+    renderStores();
+    toast('اتضاف المخزن «' + name + '» ✓ — اختاره في نموذج الحركة');
+    return true;
+  }
+
+  /* حذف مخزن: حركاته تتنقل لأول مخزن متبقي حتى لا تضيع */
+  function deleteStore(name) {
+    var v = getStores();
+    if (v.stores.length <= 1) { toast('لازم يفضل مخزن واحد على الأقل', true); return; }
+    var idx = v.stores.indexOf(name);
+    if (idx === -1) return;
+    v.stores.splice(idx, 1);
+    var move = v.stores[0];
+    v.docs.forEach(function (d) { if (String(d.store || '').trim() === name) d.store = move; });
+    saveStores(v);
+    if (storeFilter === name) storeFilter = 'all';
+    renderStoreChips();
+    renderStores();
+    toast('اتحذف مخزن «' + name + '» — حركاته اتنقلت لـ «' + move + '»');
+  }
+
   function renderStoreSummary() {
     var box = $('#storeSummary');
     if (!box) return;
@@ -7546,9 +7609,6 @@
       var lbl = STORE_LABEL[d.type] || d.type;
       var clsIn = d.type === 'in' ? 'tag--in' : 'tag--out';
       if (d.type === 'return') clsIn = 'tag--in';
-      var bal = storeItemBalance(d.item) + (d.type === 'out' ? d.qty : (d.type === 'in' ? -d.qty : -d.qty));
-      /* رصيد مخزن لو كانت الحركة دي سحبناها:
-         القيمة الحالية للصنف بعد الحركة (يعرض جنب كل عملية) */
       return '<tr>' +
         '<td>' + (n + 1) + '</td>' +
         '<td>' + esc(formatDate(d.date)) + '</td>' +
@@ -7561,11 +7621,13 @@
         '<td>' + esc(d.partyName || '—') + '<small style="color:var(--muted)"> (' + esc(d.partyType === 'supplier' ? 'مورد' : d.partyType === 'customer' ? 'عميل' : 'شريك') + ')</small></td>' +
         '<td>' + esc(d.work || '—') + '</td>' +
         '<td class="cell-note">' + esc(d.note || '—') + '</td>' +
-        '<td class="col-cell"><button type="button" class="btn btn--ghost btn--sm btn--danger" data-del-store="' + (docs.length - 1 - n) + '">حذف</button></td>' +
+        '<td class="col-cell"><button type="button" class="btn btn--ghost btn--sm btn--danger" data-del-store="' + esc(d.id || '') + '">حذف</button></td>' +
         '</tr>';
     });
     if (!docs.length) {
-      html = ['<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:26px">لا توجد حركات مخزن بعد — أضف أول حركة من النموذج أعلاه (دواخل للبضاعة الجديدة، خوارج للبيع، مرتجع للإرجاع).</td></tr>'];
+      html = ['<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:26px">لا توجد حركات ' +
+        (storeFilter && storeFilter !== 'all' ? 'في «' + esc(storeFilter) + '»' : 'مخزن') +
+        ' بعد — أضف أول حركة من النموذج أعلاه (دواخل للبضاعة الجديدة، خوارج للبيع، مرتجع للإرجاع).</td></tr>'];
     }
     tbody.innerHTML = html;
     var cnt = $('#storeCount');
@@ -7634,8 +7696,6 @@
     var pw = $('#storePaidWrap'), rw = $('#storeRefundWrap');
     if (pw) pw.hidden = !(typ === 'in' && party === 'supplier');
     if (rw) rw.hidden = !(typ === 'return' && party === 'supplier');
-    if (pw && !pw.hidden && !f.elements.paid.value) f.elements.paid.value = '';
-    if (rw && !rw.hidden && !f.elements.refund.value) f.elements.refund.value = '';
   }
 
   function updateStoreCalc() {
@@ -7663,7 +7723,7 @@
           sups[si].tx = (sups[si].tx || []).concat([{
             date: doc.date, no: '',
             desc: 'توريد بضاعة (المخازن): ' + doc.item + ' — كمية ' + doc.qty,
-            incoming: Number(doc.total || 0), paid: 0, via: 'stores'
+            incoming: Number(doc.total || 0), paid: 0, via: 'stores', storeDocId: doc.id || ''
           }]);
           saveSuppliers(sups);
         }
@@ -7674,7 +7734,7 @@
         if (ci > -1) {
           cs[ci].storeSends = (cs[ci].storeSends || []).concat([{
             date: doc.date, item: doc.item, qty: doc.qty, total: doc.total,
-            work: doc.work || '', note: doc.note || '', via: 'stores'
+            work: doc.work || '', note: doc.note || '', via: 'stores', storeDocId: doc.id || ''
           }]);
           saveCustomers(cs);
         }
@@ -7685,12 +7745,52 @@
         if (pi > -1) {
           pts[pi].storeTakes = (pts[pi].storeTakes || []).concat([{
             date: doc.date, item: doc.item, qty: doc.qty, total: doc.total,
-            work: doc.work || '', note: doc.note || '', via: 'stores'
+            work: doc.work || '', note: doc.note || '', via: 'stores', storeDocId: doc.id || ''
           }]);
           savePartners(pts);
         }
       }
     } catch (e) {}
+  }
+
+  /* حذف حركة مخزن: يشيل أثرها من حساب الطرف المربوط بها (مايفضلش قيد يتيمه) */
+  function unlinkStoreFromParty(doc) {
+    if (!doc || !doc.partyName) return;
+    var name = String(doc.partyName).trim();
+    var item = String(doc.item || '').trim();
+    var date = String(doc.date || '');
+    var same = function (r) {
+      if (doc.id && r.storeDocId) return String(r.storeDocId) === String(doc.id);
+      return String(r.date || '') === date && String(r.desc || '').indexOf(item) > -1;
+    };
+    if (doc.partyType === 'supplier') {
+      var sups = getSuppliers();
+      var si = sups.map(function (s) { return String(s.name || '').trim(); }).indexOf(name);
+      if (si > -1) {
+        sups[si].tx = (sups[si].tx || []).filter(function (t) { return t.via !== 'stores' || !same(t); });
+        saveSuppliers(sups);
+      }
+    } else if (doc.partyType === 'customer') {
+      var cs = getCustomers();
+      var ci = cs.map(function (c) { return String(c.name || '').trim(); }).indexOf(name);
+      if (ci > -1) {
+        cs[ci].storeSends = (cs[ci].storeSends || []).filter(function (r) {
+          if (doc.id && r.storeDocId) return String(r.storeDocId) !== String(doc.id);
+          return !(String(r.date || '') === date && String(r.item || '') === item);
+        });
+        saveCustomers(cs);
+      }
+    } else if (doc.partyType === 'partner') {
+      var pts = getPartners();
+      var pi = pts.map(function (p) { return String(p.name || '').trim(); }).indexOf(name);
+      if (pi > -1) {
+        pts[pi].storeTakes = (pts[pi].storeTakes || []).filter(function (r) {
+          if (doc.id && r.storeDocId) return String(r.storeDocId) !== String(doc.id);
+          return !(String(r.date || '') === date && String(r.item || '') === item);
+        });
+        savePartners(pts);
+      }
+    }
   }
 
   /* أثر المبلغ على الحساب: دفع للمورد يقلّل الباقي، والمرتجع النقدي يرجّع فلوس */
@@ -7704,10 +7804,10 @@
       if (si === -1) return;
       var tx = (sups[si].tx || []).slice();
       if (paid > 0) {
-        tx.push({ date: doc.date, no: '', desc: 'دفعة مع بضاعة «' + doc.item + '» (المخازن)', incoming: 0, paid: paid, via: 'stores' });
+        tx.push({ date: doc.date, no: '', desc: 'دفعة مع بضاعة «' + doc.item + '» (المخازن)', incoming: 0, paid: paid, via: 'stores', storeDocId: doc.id || '' });
       }
       if (refund > 0) {
-        tx.push({ date: doc.date, no: '', desc: 'مرتجع بفلوس مع «' + doc.item + '» (المخازن)', incoming: -refund, paid: 0, via: 'stores' });
+        tx.push({ date: doc.date, no: '', desc: 'مرتجع بفلوس مع «' + doc.item + '» (المخازن)', incoming: -refund, paid: 0, via: 'stores', storeDocId: doc.id || '' });
       }
       tx.sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); });
       sups[si].tx = tx;
@@ -7732,9 +7832,9 @@
       var item = String(($('#storeItem') || {}).value || '').trim();   /* الحقل اسمه item و f.item دالة HTMLCollection */
       var qty = parseFloat(f.qty.value);
       var price = parseFloat(f.price.value);
-      var store = f.elements.store ? String(f.elements.store.value || '').trim() : '';
-      var paid = parseFloat(f.paid && !f.paid.value === undefined ? f.paid.value : (f.elements.paid ? f.elements.paid.value : 0)) || 0;
-      var refund = parseFloat(f.elements.refund ? f.elements.refund.value : 0) || 0;
+      var store = f.store ? String(f.store.value || '').trim() : '';
+      var paid = f.paid ? (parseFloat(f.paid.value) || 0) : 0;
+      var refund = f.refund ? (parseFloat(f.refund.value) || 0) : 0;
       var partyType = f.partyType.value;
       var partyName = String(f.partyName.value || '').trim();
       var work = String(f.work.value || '').trim();
@@ -7758,6 +7858,7 @@
       var v = getStores();
       var docs = v.docs;
       var doc = {
+        id: 'st' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
         date: date, type: type, item: item, qty: qty, price: price, total: total,
         partyType: partyType, partyName: partyName, work: work, note: note,
         store: store, paid: paid, refund: refund
@@ -7827,18 +7928,27 @@
   document.addEventListener('click', function (e) {
     var b = e.target.closest('[data-del-store]');
     if (!b) return;
-    var idx = parseInt(b.getAttribute('data-del-store'), 10);
-    var docs = storeDocs();
-    if (!(idx > -1) || idx >= docs.length) return;
+    var id = b.getAttribute('data-del-store');
+    var vv = getStores();
+    var idx = -1;
+    vv.docs.forEach(function (d, i) { if (String(d.id || '') === String(id)) idx = i; });
+    if (idx === -1) return;
+    var target = vv.docs[idx];
     openConfirm({
       title: 'حذف حركة مخزن',
-      message: 'هل تريد حذف حركة «' + docs[idx].item + '» نهائياً؟',
+      message: 'هل تريد حذف حركة «' + (target.item || '') + '» نهائياً؟ هيتشال أثرها من حساب الطرف كذلك.',
       yes: 'نعم، حذف', no: 'تراجع', password: true,
       onYes: function () {
-        docs.splice(idx, 1);
-        saveStores({ docs: docs });
+        var v2 = getStores();
+        var gi = -1;
+        v2.docs.forEach(function (d, i) { if (String(d.id || '') === String(id)) gi = i; });
+        if (gi === -1) return;
+        var gone = v2.docs[gi];
+        v2.docs.splice(gi, 1);
+        saveStores(v2);
+        try { unlinkStoreFromParty(gone); } catch (e) {}
         renderStores();
-        toast('تم حذف حركة المخزن');
+        toast('تم حذف حركة المخزن مع أثرها في حساب الطرف');
       }
     });
   });
