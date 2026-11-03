@@ -16,6 +16,7 @@ const FILES = [
   'app.js',
   'app-lock.js',
   'splash.js',
+  'period.js',
   'export.js',
   'auth-gate-addon.js',
   'manifest.webmanifest',
