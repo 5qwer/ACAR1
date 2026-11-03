@@ -4926,6 +4926,26 @@
     });
   }
 
+  /* واجهة موحّدة للوحدات المستقلة (تصدير الفترة) — تنزيل أو رفع على Drive */
+  try {
+    window.NizamDrive = {
+      isConnected: function () { return !!driveState.connected; },
+      save: function (name, mime, bytes) {
+        if (typeof ExportKit === 'undefined') return Promise.reject(new Error('محرك التصدير غير محمّل'));
+        var b64 = ExportKit.bytesToBase64(bytes);
+        return uploadToDrive(name, mime, b64).then(function (r) {
+          toast('تم الرفع إلى Google Drive ✓');
+          try { notifyUploaded(name, mime, b64, r && r.link); } catch (e) {}
+          return r;
+        });
+      },
+      goSettings: function () {
+        var b = document.querySelector('[data-go="settings"]');
+        if (b) b.click();
+      }
+    };
+  } catch (e) {}
+
   function autoUpload(name, mime, bytes) {
     if (!driveState.connected || typeof ExportKit === 'undefined') {
       /* بدون اتصال: ننزّل الملف على الجهاز بدل الرفع */

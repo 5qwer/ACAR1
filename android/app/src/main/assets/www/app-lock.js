@@ -92,7 +92,9 @@
   function bodyHTML(mode, name) {
     var head =
       '<div class="app-lock__card">' +
-        '<div class="app-lock__logo" aria-hidden="true">amw</div>' +
+        '<div class="app-lock__logo" aria-hidden="true">' +
+          '<img src="icons/logo-amw.png" alt="AMW Code" width="84" height="84" ' +
+          'style="width:84px;height:84px;border-radius:22px;display:block;object-fit:cover" /></div>' +
         '<h1 class="app-lock__title">' + (mode === 'create' ? 'إنشاء حساب التطبيق' : 'الدخول للتطبيق') + '</h1>' +
         '<p class="app-lock__sub">' +
           (mode === 'create'

@@ -335,22 +335,102 @@
       if (kind === 'xlsx') {
         var bytes = ExportKit.buildXlsx([sheetFor(id)]);
         var fname = 'nizam-' + id + '-period-' + stamp + '.xlsx';
-        if (!ExportKit.downloadBytes || !ExportKit.downloadBytes(bytes, fname, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
-          toastMsg('تعذّر تنزيل ملف Excel', true); return false;
-        }
-        toastMsg('تم تنزيل تقرير الفترة Excel ✓');
-        return true;
+        return saveWithChoice(bytes, fname, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Excel');
       }
       if (!ExportKit.hasCanvas()) { toastMsg('تصدير PDF يحتاج متصفحاً حقيقياً', true); return false; }
       var pdf = ExportKit.reportToPdf(reportFor(id));
       if (!pdf) { toastMsg('تعذّر إنشاء ملف PDF', true); return false; }
-      ExportKit.downloadBytes(pdf, 'nizam-' + id + '-period-' + stamp + '.pdf', 'application/pdf');
-      toastMsg('تم تنزيل تقرير الفترة PDF ✓');
-      return true;
+      return saveWithChoice(pdf, 'nizam-' + id + '-period-' + stamp + '.pdf', 'application/pdf', 'PDF');
     } catch (e) {
       toastMsg('خطأ في تصدير الفترة: ' + (e && e.message ? e.message : e), true);
       return false;
     }
+  }
+
+  /* ---------- الحفظ: نافذة اختيار (الجهاز / Google Drive) ---------- */
+  function escP(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function (ch) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch];
+    });
+  }
+
+  function saveCss() {
+    if (document.getElementById('periodSaveCss')) return;
+    var st = document.createElement('style');
+    st.id = 'periodSaveCss';
+    st.textContent =
+      '.period-save{position:fixed;inset:0;z-index:99995;display:flex;align-items:center;justify-content:center;' +
+        'background:rgba(4,7,18,.62);backdrop-filter:blur(3px);padding:18px}' +
+      '.period-save__card{width:100%;max-width:380px;background:#0f172a;color:#e8eefc;border:1px solid rgba(255,255,255,.12);' +
+        'border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:10px;box-shadow:0 24px 70px rgba(0,0,0,.6)}' +
+      '.period-save__card h3{margin:0;font-size:17px;font-weight:800}' +
+      '.period-save__name{margin:0 0 6px;font-size:12px;color:#9fb0cf;word-break:break-all}' +
+      '.period-save__btn{width:100%;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.14);' +
+        'background:rgba(255,255,255,.06);color:#e8eefc;font-size:14px;font-weight:700;cursor:pointer;text-align:start}' +
+      '.period-save__btn:hover{background:rgba(255,255,255,.12)}' +
+      '.period-save__btn--drive{background:linear-gradient(135deg,#1d4ed8,#0ea5e9);border-color:transparent}' +
+      '.period-save__btn:disabled{opacity:.45;cursor:not-allowed}' +
+      '.period-save__hint{margin:0;font-size:12px;color:#9fb0cf;line-height:1.7}' +
+      '.period-save__cancel{background:none;border:none;color:#9fb0cf;font-size:13px;cursor:pointer;padding:6px}';
+    document.head.appendChild(st);
+  }
+
+  function showSaveChoice(name, mime, bytes, label, connected) {
+    saveCss();
+    var old = document.getElementById('periodSaveModal');
+    if (old) old.remove();
+    var el = document.createElement('div');
+    el.id = 'periodSaveModal';
+    el.className = 'period-save';
+    el.innerHTML =
+      '<div class="period-save__card" role="dialog" aria-modal="true" aria-label="حفظ الملف">' +
+        '<h3>حفظ ملف ' + escP(label) + '</h3>' +
+        '<p class="period-save__name">' + escP(name) + '</p>' +
+        '<button type="button" class="period-save__btn" data-save="device">⬇️ تنزيل على الجهاز</button>' +
+        '<button type="button" class="period-save__btn period-save__btn--drive" data-save="drive"' +
+          (connected ? '' : ' disabled') + '>☁️ رفع إلى Google Drive</button>' +
+        (connected ? '' : '<p class="period-save__hint">اربط حساب Google من الإعدادات عشان ترفع الملفات على Drive.</p>') +
+        '<button type="button" class="period-save__cancel" data-save="cancel">إلغاء</button>' +
+      '</div>';
+    document.body.appendChild(el);
+
+    el.addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('[data-save]');
+      if (!b) { if (e.target === el) el.remove(); return; }
+      var where = b.getAttribute('data-save');
+      el.remove();
+      if (where === 'cancel') return;
+      if (where === 'device') {
+        ExportKit.downloadBytes(bytes, name, mime);
+        toastMsg('تم تنزيل ' + label + ' على الجهاز ✓');
+        return;
+      }
+      var drive = window.NizamDrive;
+      if (!drive || !drive.save) { toastMsg('خدمة Drive غير محمّلة', true); return; }
+      toastMsg('جاري الرفع إلى Google Drive…');
+      Promise.resolve(drive.save(name, mime, bytes))
+        .then(function (r) {
+          toastMsg('تم رفع ' + label + ' على Drive ✓' + (r && r.link ? ' — ' + r.link : ''));
+        })
+        .catch(function (err) {
+          toastMsg('فشل الرفع: ' + (err && err.message ? err.message : err), true);
+        });
+    });
+  }
+
+  function saveWithChoice(bytes, name, mime, label) {
+    var drive = window.NizamDrive;
+    var connected = !!(drive && drive.isConnected && drive.isConnected());
+    if (connected) {
+      showSaveChoice(name, mime, bytes, label, true);
+      return true;
+    }
+    if (!ExportKit.downloadBytes || !ExportKit.downloadBytes(bytes, name, mime)) {
+      toastMsg('تعذّر تنزيل الملف', true);
+      return false;
+    }
+    toastMsg('تم تنزيل ' + label + ' ✓ — اربط Google Drive من الإعدادات للرفع مباشرة');
+    return true;
   }
 
   /* ---------- الأحداث ---------- */

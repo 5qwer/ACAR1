@@ -27,6 +27,7 @@
     '.awm-splash__tile{position:relative;width:200px;height:200px;border-radius:36px;overflow:hidden;z-index:2;' +
       'background:linear-gradient(160deg,#141a3f,#080b1e 62%,#05070f);display:grid;place-items:center;' +
       'box-shadow:0 0 0 1px rgba(255,255,255,.09),0 26px 60px rgba(0,0,0,.62),inset 0 0 46px rgba(139,92,246,.32)}' +
+    '.awm-splash__mark-img{width:100%;height:100%;object-fit:cover;display:block}' +
     '.awm-splash__mark{font-size:3.1rem;font-weight:800;letter-spacing:4px;' +
       'background:linear-gradient(90deg,#e879f9,#8b5cf6,#38bdf8,#22d3ee);-webkit-background-clip:text;background-clip:text;' +
       '-webkit-text-fill-color:transparent;color:transparent}' +
@@ -59,7 +60,7 @@
     '@keyframes awmShimmer{to{background-position:250% center}}' +
     '@keyframes awmBounce{0%,100%{transform:translateY(0);opacity:.55}50%{transform:translateY(-10px);opacity:1}}' +
     '@media (max-width:420px){.awm-splash__title{font-size:1.75rem}.awm-splash__stone{width:200px;height:200px}' +
-      '.awm-splash__tile{width:168px;height:168px;border-radius:30px}.awm-splash__mark{font-size:2.4rem}' +
+      '.awm-splash__tile{width:168px;height:168px;border-radius:30px}' +
       '.awm-splash__ring--a{width:270px;height:270px}.awm-splash__ring--b{width:330px;height:330px}}' +
     '@media (prefers-reduced-motion:reduce){.awm-splash *{animation-duration:.001s!important;animation-iteration-count:1!important}}';
 
@@ -152,7 +153,8 @@
           '<div class="awm-splash__halo"></div>' +
           '<div class="awm-splash__ring awm-splash__ring--a"></div>' +
           '<div class="awm-splash__ring awm-splash__ring--b"></div>' +
-          '<div class="awm-splash__tile"><span class="awm-splash__mark">amw</span>' +
+          '<div class="awm-splash__tile">' +
+            '<img class="awm-splash__mark-img" src="icons/logo-amw.png" alt="AMW Code" width="200" height="200" />' +
             '<span class="awm-splash__shine"></span></div>' +
         '</div>' +
         '<h1 class="awm-splash__title">AMW Code Company</h1>' +

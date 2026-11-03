@@ -1,17 +1,22 @@
 /* ============================================================
    auth-gate-addon.js — وضع المشاهد (حساب غير مصرح له)
    ------------------------------------------------------------
-   غير gstsyusudg@gmail.com  →  مشاهد فقط:
+   غير حسابات المسؤول (gstsyusudg@gmail.com / mahmoed181186@gmail.com) → مشاهد فقط:
      • تُخفى أزرار الإضافة/التعديل/الحذف/الحفظ/الرفع/التصدير
      • يُمنع النقر عليها حتى لو ظهرت (منع من طبقة الأعلى)
      • تُمنع إرسال أي نموذج (Enter أو زر حفظ)
-   gstsyusudg@gmail.com  →  صلاحيات كاملة (تعديل/حذف/إضافة)
+   حسابات المسؤول  →  صلاحيات كاملة (تعديل/حذف/إضافة)
    + استعادة رابط المجلد العام وسحب البيانات بعد الربط
    ============================================================ */
 (function () {
   'use strict';
 
-  var ADMIN_EMAIL = 'gstsyusudg@gmail.com';
+  /* حسابات المسؤول — كلهم صلاحيات كاملة، وأي حساب تاني متصل يبقى مشاهد */
+  var ADMIN_EMAILS = ['gstsyusudg@gmail.com', 'mahmoed181186@gmail.com'];
+  var ADMIN_EMAIL = ADMIN_EMAILS[0];
+  function isAdminEmail(e) {
+    return ADMIN_EMAILS.indexOf(String(e || '').trim().toLowerCase()) > -1;
+  }
   var VIEWER = false;
   /* بيئات موثوقة: نسخة سطح المكتب (Electron) أو الأندرويد المدمجة (Capacitor).
      هي جهاز المالك نفسه، فالصلاحيات كاملة فوراً بدون أي طلب شبكة — أسرع إقلاع. */
@@ -292,7 +297,7 @@
   function roleFromCache() {
     try {
       var c = JSON.parse(localStorage.getItem(ROLE_CACHE_KEY) || 'null');
-      if (c && c.role === 'admin' && c.email === ADMIN_EMAIL) return c;
+      if (c && c.role === 'admin' && isAdminEmail(c.email)) return c;
     } catch (e) {}
     return null;
   }
@@ -343,7 +348,7 @@
         .then(function (s) {
           var connected = !!(s && s.connected);
           var email = connected ? String(s.email || '').trim().toLowerCase() : '';
-          var isAdmin = connected && email === ADMIN_EMAIL;
+          var isAdmin = connected && isAdminEmail(email);
           try {
             localStorage.setItem('app_user_email', email);
             localStorage.setItem('app_user_role', isAdmin ? 'admin' : 'viewer');
