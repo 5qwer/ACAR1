@@ -95,6 +95,11 @@ const ok = (n, c, x) => { if (c) { pass++; console.log('  PASS  ' + n); } else {
   const done = window.__period.exportPeriod('ledger', 'xlsx');
   await wait(300);
   ok('تصدير Excel اشتغل', done === true);
+  const modal = doc.querySelector('#periodSaveModal');
+  ok('نافذة اختيار الحفظ ظهرت', !!modal);
+  ok('فيها تنزيل على الجهاز', !!(modal && modal.querySelector('[data-save="device"]')));
+  ok('فيها رفع على Google Drive', !!(modal && modal.querySelector('[data-save="drive"]')));
+  if (modal) modal.remove();
 
   console.log('\n[5] فترة التحصيل');
   window.localStorage.setItem('app_customers', JSON.stringify([{

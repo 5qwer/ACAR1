@@ -2520,25 +2520,45 @@
     el.style.setProperty('--tx', '0px');
     el.style.setProperty('--ty', '0px');
   }
+  var TOAST_MS = 15000;   /* الإشعار يختفي لوحده بعد 15 ثانية */
   function toast(msg, isError) {
     var el = $('#toast');
-    el.querySelector('span').textContent = msg;
+    if (!el) return;
+    var span = el.querySelector('span');
+    var showing = el.classList.contains('show');
+    var same = showing && span && span.textContent === msg;
+    if (span) span.textContent = msg;
     el.style.borderColor = isError ? 'rgba(248,113,113,.5)' : 'rgba(52,211,153,.45)';
     el.style.color = isError ? '#fecaca' : '#d1fae5';
     el.style.setProperty('--tx', '0px');
     el.style.setProperty('--ty', '0px');
     el.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(hideToast, 6000);
+    /* نفس الرسالة وهي ظاهرة ما بتجدّدش العدّاد — عشان تختفي بعد 15ث مهما اتكررت */
+    if (!same) {
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(hideToast, TOAST_MS);
+    }
   }
+  /* متاحة للمكوّنات المستقلة (بوابة الدخول، فترة التصدير) */
+  try { window.toast = toast; } catch (e) {}
 
   (function wireToast() {
     var el = $('#toast');
     if (!el) return;
     var close = $('#toastClose');
-    if (close) close.addEventListener('click', function (e) { e.stopPropagation(); hideToast(); });
+    function closeToast(e) {
+      if (e && e.preventDefault) e.preventDefault();
+      if (e && e.stopPropagation) e.stopPropagation();
+      hideToast();
+    }
+    if (close) {
+      close.addEventListener('click', closeToast);
+      /* نمنع السحب/الضغط على الإشعار نفسه لما نضغط زر × */
+      close.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+      close.addEventListener('pointerup', function (e) { e.stopPropagation(); });
+    }
     el.addEventListener('click', function (e) {
-      if (e.target.closest('.toast__x')) return;
+      if (e.target.closest('#toastClose, .toast__x')) { closeToast(e); return; }
       if (el.dataset.dragged === '1') { el.dataset.dragged = ''; return; }
       hideToast();
     });

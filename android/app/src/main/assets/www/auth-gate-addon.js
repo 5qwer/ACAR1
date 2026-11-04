@@ -50,12 +50,15 @@
 
   function toastMsg(text) {
     try {
+      /* نستخدم إشعار التطبيق الموحّد (زر × + اختفاء بعد 15 ثانية)
+         بدل نسخة تانية بتختفي بعد 2.4 ثانية بدون زر إغلاق */
+      if (typeof window.toast === 'function') { window.toast(text); return; }
       var t = document.getElementById('toast');
       if (!t) return;
       t.querySelector('span').textContent = text;
       t.classList.add('show');
       clearTimeout(toastMsg._t);
-      toastMsg._t = setTimeout(function () { t.classList.remove('show'); }, 2400);
+      toastMsg._t = setTimeout(function () { t.classList.remove('show'); }, 15000);
     } catch (e) {}
   }
 

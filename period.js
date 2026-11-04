@@ -431,18 +431,12 @@
     });
   }
 
+  /* دايمًا نسأل المستخدم: تنزيل على الجهاز ولا رفع على Drive —
+     حتى لو الحساب مش مربوط بنعرض الخيارين ( Drive يكون معطّل مع تلميح ) */
   function saveWithChoice(bytes, name, mime, label) {
     var drive = window.NizamDrive;
     var connected = !!(drive && drive.isConnected && drive.isConnected());
-    if (connected) {
-      showSaveChoice(name, mime, bytes, label, true);
-      return true;
-    }
-    if (!ExportKit.downloadBytes || !ExportKit.downloadBytes(bytes, name, mime)) {
-      toastMsg('تعذّر تنزيل الملف', true);
-      return false;
-    }
-    toastMsg('تم تنزيل ' + label + ' ✓ — اربط Google Drive من الإعدادات للرفع مباشرة');
+    showSaveChoice(name, mime, bytes, label, connected);
     return true;
   }
 
