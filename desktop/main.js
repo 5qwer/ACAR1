@@ -97,7 +97,21 @@ ipcMain.handle('backup:saveBinary', (e, payload) => {
   return backupInfo();
 });
 
+/* نرجّع النافذة الموجودة للمقدمة (بعد الإخفاء أو التصغير) بدل فتح واحدة جديدة */
+function focusWindow() {
+  try {
+    if (!win || win.isDestroyed()) return false;
+    if (win.isMinimized()) win.restore();
+    if (!win.isVisible()) win.show();
+    win.focus();
+    return true;
+  } catch (e) { return false; }
+}
+
 function createWindow() {
+  /* لو فيه نافذة شغالة بالفعل نكتفي بتركيزها */
+  if (focusWindow()) return win;
+
   win = new BrowserWindow({
     width: 1320,
     height: 860,
@@ -119,6 +133,8 @@ function createWindow() {
 
   win.loadURL('http://127.0.0.1:' + info.port + '/');
 
+  win.on('closed', function () { win = null; });
+
   /* كل رابط خارجي يفتح في المتصفح الافتراضي مش داخل التطبيق */
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:\/\//i.test(url)) shell.openExternal(url);
@@ -136,7 +152,21 @@ function createWindow() {
    لو الحساب مسجّل كعميل ويب (عميل Desktop بيقبل أي منفذ على loopback). */
 const DEFAULT_APP_PORT = 47820;
 
+/* قفل النسخة الواحدة: أي تشغيل تاني لنفس التطبيق (ضغط أيقونة الديسكتوب
+   أو تشغيل الـ exe مرة ثانية) بيرجّع النافذة الأصلية للمقدمة بدل فتح نافذة جديدة. */
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (!focusWindow()) {
+      try { if (info) createWindow(); } catch (e) {}
+    }
+  });
+}
+
 app.whenReady().then(async () => {
+  /* تجميع التطبيق في شريط المهام تحت أيقونته الصح */
+  try { app.setAppUserModelId('com.amw.nizam-idara'); } catch (e) {}
   try {
     info = await server.start(DEFAULT_APP_PORT);
   } catch (e) {
@@ -170,7 +200,8 @@ app.whenReady().then(async () => {
   createWindow();
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    /* نافذة واحدة بس — نرجّع الموجود بدل إنشاء واحدة جديدة */
+    if (!focusWindow() && BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
