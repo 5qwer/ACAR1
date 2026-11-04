@@ -36,7 +36,7 @@
 <body>
 
 <!-- شاشة الربط الإلزامية -->
-<div id="forceAuthGate" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:#0a0e15;z-index:999999;display:flex !important;align-items:center;justify-content:center;">
+<div id="forceAuthGate" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:#0a0e15;z-index:999999;display:flex;align-items:center;justify-content:center;">
   <div style="background:linear-gradient(180deg,#151b26,#0a0e15);border:1px solid #4f8cff;border-radius:24px;padding:40px;max-width:500px;width:90%;text-align:center;">
     <h2 style="color:#f2f6fb;margin-bottom:10px;font-size:24px;">ربط حساب Google Drive</h2>
     <p style="color:#9fadc2;margin-bottom:30px;">يجب ربط حساب Google Drive للدخول إلى التطبيق</p>
@@ -45,6 +45,7 @@
     <button type="button" id="gateConnect" onclick="localStorage.setItem('app_shared_folder_url',document.getElementById('forceFolderUrl').value);window.startGoogleLogin?window.startGoogleLogin(event):(window.location.href='/api/google/login');" style="width:100%;padding:14px;background:linear-gradient(90deg,#4f8cff,#7aa8ff);color:#fff;border:none;border-radius:12px;font-weight:700;cursor:pointer;">ربط حساب Google Drive</button>
     <div id="gateError" style="display:none;margin-top:16px;padding:12px 14px;border-radius:12px;border:1px solid #f87171;background:rgba(248,113,113,.12);color:#fecaca;font-size:13px;line-height:1.9;text-align:right;"></div>
     <button type="button" id="gateRetry" style="display:none;width:100%;margin-top:12px;padding:11px;background:transparent;border:1px solid #4f8cff;color:#9fadc2;border-radius:10px;cursor:pointer;font-weight:600;">إعادة المحاولة</button>
+    <button type="button" id="gateSkip" style="display:none;width:100%;margin-top:10px;padding:11px;background:transparent;border:1px dashed #33415a;color:#9fadc2;border-radius:10px;cursor:pointer;font-weight:600;font-size:12.5px;">الدخول بدون ربط (وضع محلي)</button>
     <button type="button" id="gateDiag" style="margin-top:14px;width:100%;padding:10px;background:transparent;border:1px solid #33415a;border-radius:10px;color:#9fadc2;font-weight:600;font-size:12.5px;cursor:pointer;">🔍 فحص المفاتيح (لو بيقول إنها ناقصة)</button>
     <div id="gateDiagBox" style="display:none;margin-top:10px;padding:12px 14px;border-radius:12px;border:1px solid #33415a;background:#0d1420;color:#cbd5e1;font-size:12.5px;line-height:1.9;text-align:right;word-break:break-word;"></div>
   </div>
@@ -1863,17 +1864,29 @@ window.__retryAsset = function (el, name) {
 <script>
   /* الشاشة الإلزامية: تظهر حتى يتم ربط حساب Google */
   var gate = document.getElementById('forceAuthGate');
+  function hideGate() {
+    if (!gate) return;
+    gate.style.display = 'none';
+    gate.setAttribute('aria-hidden', 'true');
+  }
   /* إقلاع سريع: لو الحساب مربوط ومحفوظ (أدمن) أو إحنا في بيئة موثوقة
-     (نسخة سطح المكتب/الأندرويد) نخفي الشاشة فوراً بدون أي طلب شبكة. */
+     (نسخة سطح المكتب/الأندرويد أو تشغيل محلي) نخفي الشاشة فوراً بدون أي طلب شبكة.
+     نسخة سطح المكتب بتفتح من 127.0.0.1 والأندرويد من file:// — مفيش API هناك،
+     فالشاشة الإلزامية كانت بتحبس التطبيق كله على «Failed to fetch». */
   var gateTrustedFast = false;
+  var __localRuntime = false;
+  try {
+    __localRuntime = (location.protocol === 'file:') ||
+      /^(127\.0\.0\.1|localhost|::1|\[::1\])$/i.test(location.hostname || '');
+  } catch (eLoc) {}
   try {
     var __role = JSON.parse(localStorage.getItem('app_role_cache') || 'null');
-    var __trusted = (window.APP_TRUSTED_RUNTIME === true) ||
+    var __trusted = (window.APP_TRUSTED_RUNTIME === true) || __localRuntime ||
       (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
     gateTrustedFast = !!__trusted || (!!__role && __role.role === 'admin');
   } catch (eFast) {}
-  if (gate && !gateTrustedFast) gate.style.display = 'flex';
-  if (typeof fetch === 'function') {
+  if (gate && gateTrustedFast) hideGate();
+  if (typeof fetch === 'function' && !gateTrustedFast) {
     function gateStatusError(msg) {
       var e = document.getElementById('gateError');
       var retryBtn = document.getElementById('gateRetry');
@@ -1895,7 +1908,7 @@ window.__retryAsset = function (el, name) {
             if (s && s.connected) localStorage.setItem('app_drive_conn', '1');
             else localStorage.removeItem('app_drive_conn');
           } catch (eC) {}
-          if (s && s.connected && gate) { gate.style.display = 'none'; return; }
+          if (s && s.connected && gate) { hideGate(); return; }
           if (s && s.configured === false) {
             var miss = (s.missing && s.missing.length) ? s.missing.join('، ') : 'Client ID، Client Secret';
             gateStatusError('مفاتيح Google غير مضبوطة على الخادم: ' + miss +
@@ -1921,7 +1934,7 @@ window.__retryAsset = function (el, name) {
           var wasConnected = false;
           try { wasConnected = localStorage.getItem('app_drive_conn') === '1'; } catch (eW) {}
           if (wasConnected && gate) {
-            gate.style.display = 'none';
+            hideGate();
             var r2 = document.getElementById('gateRetry');
             if (r2) r2.style.display = 'none';
             setTimeout(checkGate, 4000);
@@ -1929,11 +1942,18 @@ window.__retryAsset = function (el, name) {
           }
           gateStatusError('تعذّر التحقق من حالة الربط (' + (err && err.message ? err.message : 'خطأ') +
             ') — البيانات محفوظة، اضغط «إعادة المحاولة».');
+          var skipBtn = document.getElementById('gateSkip');
+          if (skipBtn) skipBtn.style.display = 'block';
         });
     }
     checkGate();
     var gateRetryBtn = document.getElementById('gateRetry');
     if (gateRetryBtn) gateRetryBtn.addEventListener('click', checkGate);
+    var gateSkipBtn = document.getElementById('gateSkip');
+    if (gateSkipBtn) gateSkipBtn.addEventListener('click', function () {
+      try { localStorage.setItem('app_drive_skip', '1'); } catch (eS) {}
+      hideGate();
+    });
   }
   /* تسجيل Service Worker ليعمل التطبيق مثبتاً على أندرويد/الديسكتوب بدون إنترنت */
   if ('serviceWorker' in navigator) {
