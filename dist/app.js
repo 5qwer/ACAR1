@@ -4767,6 +4767,9 @@
     driveState.diag = diag || {};
     var verdict = driveState.diag.verdict || (cfg ? 'keys_ready' : 'missing_keys');
     var tail = driveState.diag.clientIdTail || '';
+    /* الربط عبر الموقع الرسمي (نسخة الديسكتوب) — منعرضش تعليمات المفاتيح */
+    var viaSite = driveState.diag.mode === 'site';
+    var siteLink = driveState.diag.siteLink === true;
     var setup = $('#driveSetup'), connect = $('#driveConnect'),
         disconnect = $('#driveDisconnect'), upload = $('#driveUploadLabel'), note = $('#driveNote');
     if (setup) setup.hidden = !!cfg || !!backendDown;
@@ -4812,6 +4815,9 @@
       if (conn) {
         note.hidden = false;
         note.textContent = 'أي ملف تصدير هيتنزّل ويترفع على Drive تلقائياً.';
+      } else if (siteLink) {
+        note.hidden = false;
+        note.textContent = 'الربط بيبدأ من الموقع الرسمي: هيتفتح المتصفح على حسابك في الموقع، تختار حساب Google وتضغط «السماح»، وبعدها التطبيق بيكمل لوحده.';
       } else if (backendDown) {
         note.hidden = false;
         note.textContent = 'خادم الربط مش متاح على هذا النشر: مسار /api/google/status ما ردّش. لو التطبيق منشور على Vercel لازم مجلد api/ ومعاه vercel.json يكونوا مرفوعين، وإلا مفيش حاجة تقدر تربط Google.';
@@ -4837,8 +4843,12 @@
     else if (verdict === 'bad_client_id_format' || verdict === 'bad_client_secret_format') {
       setDriveStatus('is-warn', 'المفاتيح موجودة لكن ' + googleVerdictText(verdict) +
         (tail ? ' — القيمة الحالية تنتهي بـ ' + tail + ')' : '') + ' — اضغط «فحص المفاتيح»');
-    } else if (conn) setDriveStatus('is-ok', 'متصل بحساب Google Drive' + (email ? ' — ' + email : ''));
-    else setDriveStatus('', 'المفاتيح مضبوطة — لم يتم ربط حساب بعد' + (tail ? ' (Client ID ينتهي بـ ' + tail + ')' : ''));
+    } else if (conn) {
+      setDriveStatus('is-ok', 'متصل بحساب Google Drive' + (email ? ' — ' + email : '') +
+        (viaSite ? ' (الربط عبر الموقع)' : ''));
+    } else if (siteLink) {
+      setDriveStatus('', 'الربط بيتم من الموقع الرسمي — اضغط «ربط حساب Google» وهيفتح المتصفح');
+    } else setDriveStatus('', 'المفاتيح مضبوطة — لم يتم ربط حساب بعد' + (tail ? ' (Client ID ينتهي بـ ' + tail + ')' : ''));
   }
 
   function refreshDriveStatus() {

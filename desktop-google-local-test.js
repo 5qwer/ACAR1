@@ -7,6 +7,8 @@ const path = require('path');
 const PORT = 47821;
 const DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'nizam-gtest-'));
 process.env.NIZAM_DATA_DIR = DATA;
+/* الاختبار ده بيغطّي الوضع المحلي (بدون الموقع) */
+process.env.NIZAM_LINK_MODE = 'local';
 const server = require('./desktop/server');
 
 let pass = 0, fail = 0;

@@ -162,6 +162,22 @@ function redirectUriFor(request, env) {
   return loopbackRedirect(request) || (originFor(request, env) + '/api/google/callback');
 }
 
+/* منفذ التطبيق المكتبي اللي بدأ الربط من الموقع (desktop=47820).
+   بعد نجاح الربط في المتصفح بنرجّع الرمز للـ loopback عشان النسخة
+   المكتبية تستخدم نفس الربط بدل ما تفضل محتاجة كوكي المتصفح. */
+function desktopPortFrom(request) {
+  try {
+    var q = new URL(request.url).searchParams.get('desktop');
+    if (!q || !/^\d{2,5}$/.test(q)) return 0;
+    var n = Number(q);
+    return n >= 1024 && n <= 65535 ? n : 0;
+  } catch (e) { return 0; }
+}
+
+function desktopUrl(port, qs) {
+  return 'http://127.0.0.1:' + port + '/api/google/site-link' + qs;
+}
+
 /* بعد الربط نرجّع المستخدم لنفس الأصول اللي بدأ منها (الديسكتوب = 127.0.0.1) */
 function backTo(request, env, qs) {
   var lb = loopbackRedirect(request);
@@ -795,6 +811,18 @@ async function handleApi(request, env, pathname) {
     return json(out, 200);
   }
 
+  /* قدرات الربط — التطبيق المكتبي بيسأل عليها قبل ما يبدأ ربط من الموقع */
+  if (pathname === '/api/google/capabilities') {
+    return json({
+      ok: true,
+      desktopLink: true,
+      version: 2,
+      origin: originFor(request, env),
+      loginUrl: '/api/google/login?desktop=<port>',
+      accessTokenUrl: '/api/google/access-token'
+    }, 200);
+  }
+
   if (!reqCreds.configured) {
     return json({ ok: false, error: 'لم يتم ضبط مفاتيح Google بعد (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET)' }, 503);
   }
@@ -829,7 +857,11 @@ async function handleApi(request, env, pathname) {
         }
       } catch (e) { /* فحص الشبكة فشل — نكمل عادي */ }
     }
-    if (early) return redirect(backTo(request, env, '?g=err&m=' + encodeURIComponent(early)), []);
+    const deskPort = desktopPortFrom(request);
+    if (early) {
+      return redirect(deskPort ? 'http://127.0.0.1:' + deskPort + '/?g=err&m=' + encodeURIComponent(early)
+        : backTo(request, env, '?g=err&m=' + encodeURIComponent(early)), []);
+    }
 
     const state = crypto.randomUUID();
     const url = new URL(AUTH_URL);
@@ -840,7 +872,10 @@ async function handleApi(request, env, pathname) {
     url.searchParams.set('access_type', 'offline');
     url.searchParams.set('prompt', 'consent');
     url.searchParams.set('state', state);
-    return redirect(url.toString(), [cookie('gstate', state, 600)]);
+    var cookies = [cookie('gstate', state, 600)];
+    /* نحفظ منفذ التطبيق المكتبي في كوكي عشان نعرفه وقت الرجوع من Google */
+    if (deskPort) cookies.push(cookie('gdesk', String(deskPort), 900));
+    return redirect(url.toString(), cookies);
   }
 
   /* رجوع من Google */
@@ -850,17 +885,23 @@ async function handleApi(request, env, pathname) {
     const code = u.searchParams.get('code');
     const state = u.searchParams.get('state');
     const saved = readCookie(request, 'gstate');
+    /* لو الربط بدأ من التطبيق المكتبي: كل خطأ لازم يوصل للتطبيق نفسه */
+    const deskCookie = readCookie(request, 'gdesk');
+    const deskPort = /^\d{2,5}$/.test(deskCookie || '') ? Number(deskCookie) : 0;
+    const back = function (qs) {
+      return deskPort ? 'http://127.0.0.1:' + deskPort + '/' + qs : backTo(request, env, qs);
+    };
 
     if (err) {
       const desc = u.searchParams.get('error_description') || '';
       const errText = err === 'access_denied'
         ? 'تم إلغاء منح الإذن من حساب Google (access_denied) — جرّب تختار حسابك وتضغط «السماح».'
         : 'Google رد بخطأ: ' + err + (desc ? ' — ' + desc : '');
-      return redirect(backTo(request, env, '?g=err&m=' + encodeURIComponent(errText)), [cookie('gstate', '', -1)]);
+      return redirect(back('?g=err&m=' + encodeURIComponent(errText)), [cookie('gstate', '', -1)]);
     }
-    if (!code) return redirect(backTo(request, env, '?g=err&m=' + encodeURIComponent('لم يصل رمز التفويض')), [cookie('gstate', '', -1)]);
+    if (!code) return redirect(back('?g=err&m=' + encodeURIComponent('لم يصل رمز التفويض')), [cookie('gstate', '', -1)]);
     if (!saved || !state || saved !== state) {
-      return redirect(backTo(request, env, '?g=err&m=' + encodeURIComponent('تحقّق الحالة غير صالح، حاول مرة أخرى')),
+      return redirect(back('?g=err&m=' + encodeURIComponent('تحقّق الحالة غير صالح، حاول مرة أخرى')),
         [cookie('gstate', '', -1)]);
     }
 
@@ -892,13 +933,68 @@ async function handleApi(request, env, pathname) {
         exp: Date.now() + (Number(tok.expires_in || 3500) * 1000)
       });
 
+      /* التطبيق المكتبي بدأ الربط من الموقع: نمرّر رمز التجديد للـ loopback
+         مرة واحدة، والتطبيق بيجدّد منه عبر /api/google/access-token. */
+      if (deskPort) {
+        var handoff = tok.refresh_token || '';
+        if (!handoff) {
+          try {
+            const row = await env.DB.prepare('SELECT refresh_token FROM google_connections WHERE client_token = ?')
+              .bind(clientToken).first();
+            handoff = (row && row.refresh_token) || '';
+          } catch (e2) { handoff = ''; }
+        }
+        return redirect(desktopUrl(deskPort, '?refresh=' + encodeURIComponent(handoff) +
+          '&email=' + encodeURIComponent(email || '')), [
+          cookie('gstate', '', -1),
+          cookie('gdesk', '', -1),
+          cookie('gconn', clientToken, 60 * 60 * 24 * 365)
+        ]);
+      }
+
       return redirect(backTo(request, env, '?g=ok'), [
         cookie('gstate', '', -1),
         cookie('gconn', clientToken, 60 * 60 * 24 * 365)
       ]);
     } catch (e) {
-      return redirect(backTo(request, env, '?g=err&m=' + encodeURIComponent(e.message || 'فشل الربط')),
+      return redirect(back('?g=err&m=' + encodeURIComponent(e.message || 'فشل الربط')),
         [cookie('gstate', '', -1)]);
+    }
+  }
+
+  /* تجديد رمز وصول من رمز تجديد (بيدعم نسخة الديسكتوب بعد ربط الموقع) */
+  if (pathname === '/api/google/access-token' && request.method === 'POST') {
+    let body = null;
+    try { body = await request.json(); } catch (e) { body = null; }
+    const refresh = cleanEnvVal(body && body.refresh_token);
+    if (!refresh) return json({ ok: false, error: 'رمز التجديد مطلوب' }, 400);
+    try {
+      const res = await fetch(TOKEN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: reqCreds.id,
+          client_secret: reqCreds.secret,
+          refresh_token: refresh,
+          grant_type: 'refresh_token'
+        }).toString()
+      });
+      const j = await res.json().catch(function () { return {}; });
+      if (!res.ok || !j.access_token) {
+        return json({
+          ok: false,
+          error: j.error_description || j.error || 'تعذّر تجديد رمز الوصول',
+          reauth: /invalid_grant|invalid_client|unauthorized_client/i.test(j.error || '')
+        }, 401);
+      }
+      return json({
+        ok: true,
+        access_token: j.access_token,
+        expires_in: Number(j.expires_in || 3500),
+        scope: j.scope || ''
+      }, 200);
+    } catch (e) {
+      return json({ ok: false, error: (e && e.message) || 'خطأ في الاتصال بـ Google' }, 502);
     }
   }
 

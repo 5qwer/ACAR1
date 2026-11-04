@@ -284,7 +284,8 @@ const google = createGoogle({
   json: json,
   readBody: readBody,
   getPort: function () { return currentPort; },
-  client: function () { return GOOGLE_CLIENT; }
+  client: function () { return GOOGLE_CLIENT; },
+  siteBase: String(process.env.NIZAM_SITE_BASE || API_BASE).replace(/\/+$/, '')
 });
 
 const server = http.createServer(async (req, res) => {

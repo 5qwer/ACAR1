@@ -9,8 +9,14 @@
    في المتصفح الخارجي، فأي كوكي أو ربط بيتحفظ في المتصفح مش
    بيوصل للتطبيق — وده كان سبب فشل الربط (خطأ 500/جلسة مش موجودة).
 
-   المسارات: status / check / login / callback / disconnect /
-             ping / upload / notify
+   فيه وضعين:
+     • «عبر الموقع» (الافتراضي): الربط بيبدأ من الموقع الرسمي، وبعد
+       ما تسمح من Google بيرجع رمز التجديد للتطبيق على loopback،
+       والتطبيق بيجدّده من /api/google/access-token على الموقع.
+     • «محلي»: OAuth بعميل Desktop لو الموقع مش متاح (NIZAM_LINK_MODE=local).
+
+   المسارات: status / check / login / callback / site-link /
+             disconnect / ping / upload / notify
    ============================================================ */
 'use strict';
 
@@ -42,7 +48,30 @@ module.exports = function createGoogle(deps) {
   const getPort = deps.getPort;
   const clientOf = typeof deps.client === 'function' ? deps.client : function () { return deps.client || {}; };
   const AUTH_FILE = path.join(deps.dataDir, 'google-auth.json');
+  /* الموقع الرسمي اللي بيتم الربط من خلاله (ومنه بنجدّد رمز الوصول) */
+  const SITE_BASE = String(deps.siteBase || process.env.NIZAM_SITE_BASE ||
+    deps.apiBase || 'https://workflow-amw-code.vercel.app').replace(/\/+$/, '');
+  const LINK_MODE = String(process.env.NIZAM_LINK_MODE || '').toLowerCase();
   let tokenCache = { tok: '', exp: 0 };
+  let siteCache = { ok: false, at: 0 };
+  /* مدة تخزين نتيجة فحص الموقع (صفر = فحص في كل مرة — للاختبارات) */
+  const CAP_TTL = Number(process.env.NIZAM_SITE_CAP_TTL || 5 * 60 * 1000);
+
+  /* هل الموقع المنشور بيدعم تمرير الربط للتطبيق؟ (نتيجة متخزّنة 5 دقايق) */
+  async function siteCapable() {
+    if (LINK_MODE === 'local') return false;
+    if (LINK_MODE === 'site') return true;
+    if (CAP_TTL > 0 && siteCache.at && Date.now() - siteCache.at < CAP_TTL) return siteCache.ok;
+    let ok = false;
+    try {
+      const ctl = typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(5000) : undefined;
+      const r = await fetch(SITE_BASE + '/api/google/capabilities', ctl ? { signal: ctl } : undefined);
+      const j = await r.json().catch(function () { return {}; });
+      ok = !!(r.ok && j && j.desktopLink);
+    } catch (e) { ok = false; }
+    siteCache = { ok: ok, at: Date.now() };
+    return ok;
+  }
 
   /* ---------- المفاتيح ---------- */
   function creds() {
@@ -105,7 +134,7 @@ module.exports = function createGoogle(deps) {
 
   async function accessToken(force) {
     const a = readAuth();
-    if (!a.refresh_token) {
+    if (!a.refresh_token && !a.site_refresh_token) {
       const err = new Error('لم يتم ربط حساب Google');
       err.needsConnect = true;
       throw err;
@@ -114,6 +143,41 @@ module.exports = function createGoogle(deps) {
     if (!force && a.access_token && Number(a.expires_at || 0) > Date.now() + 60000) {
       tokenCache = { tok: a.access_token, exp: Number(a.expires_at) };
       return a.access_token;
+    }
+    /* ربط تم من الموقع: التجديد بيتعمل بسر عميل الموقع، فنسأله هو */
+    if (a.site_refresh_token) {
+      const base = String(a.site_base || SITE_BASE).replace(/\/+$/, '');
+      const ctl = typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined;
+      let r, j;
+      try {
+        r = await fetch(base + '/api/google/access-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: a.site_refresh_token }),
+          signal: ctl
+        });
+        j = await r.json().catch(function () { return {}; });
+      } catch (e) {
+        throw new Error('تعذّر الوصول للموقع (' + base + ') لتجديد ربط Google — اتأكد من الإنترنت');
+      }
+      if (r.status === 404 || r.status === 405) {
+        /* الموقع منشور من نسخة قديمة — مالوش ذنب المستخدم، الرسالة توضّح الحل */
+        const err = new Error('الموقع المنشور مش بيدعم تجديد الربط بعد — لازم يتعمل Redeploy لآخر نسخة من الكود');
+        err.redeploy = true;
+        throw err;
+      }
+      if (!r.ok || !j.access_token) {
+        const msg = j.error_description || j.error || 'فشل تجديد رمز الوصول من الموقع';
+        const dead = tokenDead(msg) || !!j.reauth;
+        if (dead) clearAuth();
+        const err = new Error(msg);
+        err.reauth = dead;
+        throw err;
+      }
+      const sexp = Date.now() + Number(j.expires_in || 3500) * 1000;
+      patchAuth({ access_token: j.access_token, expires_at: sexp });
+      tokenCache = { tok: j.access_token, exp: sexp };
+      return j.access_token;
     }
     const c = creds();
     const r = await fetch(TOKEN_URL, {
@@ -287,23 +351,63 @@ module.exports = function createGoogle(deps) {
     if (pathname === '/api/google/status') {
       const a = readAuth();
       const rid = redirectUri();
+      const viaSite = !!a.site_refresh_token;
+      const capable = await siteCapable();
       json(res, 200, {
-        configured: c.configured,
-        connected: !!a.refresh_token,
+        configured: c.configured || capable || viaSite,
+        connected: !!(viaSite || a.refresh_token),
         email: a.email || '',
+        mode: viaSite ? 'site' : 'local',
+        siteBase: a.site_base || SITE_BASE,
+        siteLink: capable,
         clientIdTail: c.id ? c.id.slice(-10) : '',
         clientIdLength: c.id.length,
         clientIdValid: c.idValid,
         secretPresent: !!c.secret,
         secretValid: c.secretValid,
-        redirectUri: rid,
+        redirectUri: viaSite ? (a.site_base || SITE_BASE) + '/api/google/callback' : rid,
         origin: c.configured ? rid.replace(/\/api\/google\/callback$/, '') : originLocal(),
-        verdict: !c.configured ? 'missing_keys'
-          : !c.idValid ? 'bad_client_id_format'
-            : !c.secretValid ? 'bad_client_secret_format'
-              : 'keys_ready',
+        verdict: viaSite ? 'site_linked'
+          : capable ? 'site_ready'
+            : !c.configured ? 'missing_keys'
+              : !c.idValid ? 'bad_client_id_format'
+                : !c.secretValid ? 'bad_client_secret_format'
+                  : 'keys_ready',
         desktop: true
       });
+      return true;
+    }
+
+    /* الموقع رجّع الربط للتطبيق (بعد ما المستخدم سمح من Google) */
+    if (pathname === '/api/google/site-link') {
+      const u = new URL(req.url, 'http://127.0.0.1');
+      const refresh = String(u.searchParams.get('refresh') || '').trim();
+      const email = String(u.searchParams.get('email') || '').trim();
+      if (!refresh) {
+        redirect(res, localRedirect('?g=err&m=' + encodeURIComponent(
+          'الموقع ما رجّعش رمز ربط صالح — اضغط «ربط Google Drive» وجرّب تاني')));
+        return true;
+      }
+      patchAuth({
+        site_refresh_token: refresh,
+        site_base: SITE_BASE,
+        email: email,
+        refresh_token: '',
+        access_token: '',
+        expires_at: 0,
+        connected_at: new Date().toISOString(),
+        pending_state: '',
+        pending_at: 0
+      });
+      tokenCache = { tok: '', exp: 0 };
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end('<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">' +
+        '<title>تم الربط</title></head><body style="font-family:Segoe UI,Tahoma,sans-serif;' +
+        'background:#0a0e15;color:#e9eef7;display:flex;align-items:center;justify-content:center;' +
+        'height:100vh;margin:0"><div style="text-align:center"><div style="font-size:46px">✓</div>' +
+        '<h1 style="font-size:20px;margin:10px 0 6px">تم ربط حساب Google</h1>' +
+        '<p style="opacity:.75;font-size:14px;margin:0">ارجع لنسخة الديسكتوب — الحساب متصل دلوقتي.</p>' +
+        '</div></body></html>');
       return true;
     }
 
@@ -384,6 +488,12 @@ module.exports = function createGoogle(deps) {
     }
 
     if (pathname === '/api/google/login') {
+      /* الافتراضي: الربط يبدأ من الموقع الرسمي، وبعد الموافقة يرجع للتطبيق */
+      if (await siteCapable()) {
+        patchAuth({ pending_at: Date.now() });
+        redirect(res, SITE_BASE + '/api/google/login?desktop=' + (getPort() || 47820));
+        return true;
+      }
       if (!c.configured) {
         redirect(res, localRedirect('?g=err&m=' + encodeURIComponent(
           'مفاتيح Google غير موجودة في نسخة الديسكتوب — أعد تثبيت النسخة اللي فيها ملف desktop/google-client.json.')));
@@ -477,6 +587,7 @@ module.exports = function createGoogle(deps) {
         const dead = !!(e && (e.reauth || tokenDead(e.message)));
         json(res, 200, {
           ok: false, connected: false, reauth: dead, needsConnect: !dead,
+          redeploy: !!(e && e.redeploy),
           loginUrl: '/api/google/login',
           error: dead ? 'الربط غير صالح — أعد الربط من جديد' : ((e && e.message) || 'تعذّر التحقق من الربط')
         });
