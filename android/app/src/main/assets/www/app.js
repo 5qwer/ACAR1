@@ -5048,9 +5048,39 @@
   }
 
   /* نجرّب مسار الربط الأول — لو مش موجود (استضافة ثابتة بلا خادم) نقولها بدل صفحة 404 */
+  /* الربط في الديسكتوب بيكتمل في المتصفح الخارجي — نتابع حالة الربط
+     لحد ما يوصل للتطبيق بدل ما المستخدم يفضل شايف «غير مربوط». */
+  var drivePollTimer = null, drivePollUntil = 0, drivePollSaid = false;
+  function stopDrivePoll() {
+    if (drivePollTimer) { clearInterval(drivePollTimer); drivePollTimer = null; }
+  }
+  function watchDriveConnect() {
+    stopDrivePoll();
+    drivePollSaid = !!driveState.connected;
+    drivePollUntil = Date.now() + 3 * 60 * 1000;
+    drivePollTimer = setInterval(function () {
+      if (driveState.connected && !drivePollSaid) {
+        drivePollSaid = true;
+        toast('تم ربط حساب Google بنجاح ✓');
+        stopDrivePoll();
+        return;
+      }
+      if (Date.now() > drivePollUntil) { stopDrivePoll(); return; }
+      refreshDriveStatus();
+    }, 3000);
+  }
+  try {
+    window.addEventListener('focus', function () {
+      if (!driveState.connected) refreshDriveStatus();
+    });
+  } catch (eF) {}
+
   function startGoogleLogin(e) {
     if (e && e.preventDefault) e.preventDefault();
-    var go = function () { if (typeof location !== 'undefined') location.href = '/api/google/login'; };
+    var go = function () {
+      watchDriveConnect();
+      if (typeof location !== 'undefined') location.href = '/api/google/login';
+    };
     if (typeof fetch !== 'function') { go(); return; }
     fetch('/api/google/status', { credentials: 'same-origin' })
       .then(function (r) {

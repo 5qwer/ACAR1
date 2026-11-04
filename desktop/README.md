@@ -79,15 +79,25 @@ npm --prefix desktop run start   # نافذة Electron
 
 ---
 
-## 4) ربط Google Drive من نسخة سطح المكتب (اختياري)
-مسارات `/api/...` مش جزء من التطبيق المحلي. لتفعيلها:
-```bash
-set NIZAM_API_BASE=https://workflow-amw-code.vercel.app   # ويندوز
-export NIZAM_API_BASE=https://workflow-amw-code.vercel.app # لينكس/ماك
-node desktop/server.js
-```
-وبكده كل `/api/*` بيتمرّر للخادم البعيد. من غيره، زر الربط بيعرض رسالة عربية
-واضحة بدل صفحة `404`.
+## 4) ربط Google Drive في نسخة سطح المكتب
+الربط بيتم **محلياً** بواسطة `desktop/google.js`:
+
+| الخطوة | ماذا يحدث |
+|---|---|
+| `GET /api/google/login` | الخادم المحلي يبني رابط Google مباشرة (عميل Desktop + `redirect_uri=http://127.0.0.1:47820/api/google/callback`) |
+| موافقة Google | بتحصل في المتصفح الافتراضي (Electron يفتح الروابط الخارجية فيه) |
+| `GET /api/google/callback` | الخادم المحلي يستبدل الكود بـ`refresh_token` ويحفظه في `data/google-auth.json` |
+| بعد كده | `status` / `upload` / `notify` / `ping` كلها محلية — مفيش اعتماد على كوكي متصفح ولا على قاعدة بيانات الموقع |
+
+الحالة (`state`) بتتحفظ في الملف نفسه مش في كوكي، عشان العملية تكمّل حتى لو
+الرجوع حصل في متصفح مختلف عن نافذة التطبيق.
+
+باقي مسارات `/api/*` (المزامنة مثلًا) بتتمرّر للموقع الرسمي
+`https://workflow-amw-code.vercel.app`، ولو المسار مش موجود هناك أو رد بخطأ
+خادم بيتم التحويل تلقائياً لنسخة Sites المنشورة. تقدر تغيّر الاثنين بـ`NIZAM_API_BASE`.
+
+> `desktop/google-client.json` (مفاتيح عميل Desktop) مستبعد من git — لازم يكون
+> موجود على الجهاز عشان الربط يشتغل.
 
 ---
 

@@ -21,11 +21,16 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const createGoogle = require('./google');
 /* node:sqlite موجودة في Node 22.5+ (زي ما بيشتغل الخادم العادي)،
-   لكن Electron 33 شايل Node 20 فمافيهاش الوحدة دي — لو مش موجودة
-   بنستخدم مخزن JSON بنفس الواجهة بدل ما التطبيق يقع وقت التشغيل. */
+   لكن Electron 33 شايل Node 20 فمافيهاش الوحدة دي. بنتأكد من إصدار
+   Node الأول قبل أي require عشان ما يطلعش خطأ ERR_UNKNOWN_BUILTIN_MODULE
+   في سجل العملية الرئيسية، وبنستخدم مخزن JSON بنفس الواجهة. */
 let DatabaseSync = null;
-try { DatabaseSync = require('node:sqlite').DatabaseSync; } catch (e) { DatabaseSync = null; }
+const NODE_MAJOR = Number(String(process.versions.node || '0').split('.')[0]) || 0;
+if (NODE_MAJOR >= 22) {
+  try { DatabaseSync = require('node:sqlite').DatabaseSync; } catch (e) { DatabaseSync = null; }
+}
 
 /* في التطوير: __dirname = desktop/ والملفات في ../dist
    في النسخة المجمّعة: __dirname = جذر التطبيق وفيه dist مباشرة */
@@ -49,7 +54,10 @@ const DEFAULT_PORT = Number(process.env.PORT || 4568);
 /* خادم الويب اللي بيشغّل واجهات /api (ربط Google + المزامنة).
    الديسكتوب بيستخدم الموقع المنشور افتراضيًا، وأي NIZAM_API_BASE
    بيتغلّب عليه. */
-const DEFAULT_API_BASE = 'https://site-88abe32661714048a24e9bd63ac05f70.freebuff.page';
+const DEFAULT_API_BASE = 'https://workflow-amw-code.vercel.app';
+/* لو الموقع الرسمي مش فيه مسار معيّن (نسخة أقدم) أو رد بـ500، بنجرّب
+   نسخة Sites المنشورة من نفس الكود بدل ما الطلب يفشل. */
+const FALLBACK_API_BASE = 'https://site-88abe32661714048a24e9bd63ac05f70.freebuff.page';
 const API_BASE = String(process.env.NIZAM_API_BASE || DEFAULT_API_BASE).replace(/\/+$/, '');
 
 /* مفاتيح عميل Google الخاص بالديسكتوب (عميل Desktop: يقبل أي منفذ loopback) */
@@ -216,7 +224,8 @@ function readBody(req, limit) {
 }
 
 /* تمرير /api/* لخادم الويب (اختياري) */
-function proxyApi(req, res, targetPath) {
+function proxyApi(req, res, targetPath, base, retried) {
+  const baseUrl = base || API_BASE;
   const isGoogle = targetPath.indexOf('/api/google/') === 0;
   const isSync = targetPath.indexOf('/api/sync/') === 0;
   let path = targetPath;
@@ -228,7 +237,7 @@ function proxyApi(req, res, targetPath) {
       'redirect_uri=' + encodeURIComponent('http://127.0.0.1:' + currentPort + '/api/google/callback');
   }
 
-  const u = new URL(API_BASE + path);
+  const u = new URL(baseUrl + path);
   const headers = Object.assign({}, req.headers, { host: u.host });
   delete headers['accept-encoding'];
   if (isGoogle || isSync) {
@@ -244,13 +253,21 @@ function proxyApi(req, res, targetPath) {
     headers: headers
   };
   const pre = (u.protocol === 'https:' ? require('https') : http).request(opts, (r) => {
+    /* الموقع الرسمي مش فيه المسار ده (نسخة أقدم) أو رد بخطأ خادم →
+       نجرّب النسخة الاحتياطية المنشورة من نفس الكود. */
+    const status = r.statusCode || 502;
+    if (!retried && baseUrl === API_BASE && FALLBACK_API_BASE !== API_BASE && (status === 404 || status >= 500)) {
+      try { r.resume(); } catch (e) {}
+      proxyApi(req, res, targetPath, FALLBACK_API_BASE, true);
+      return;
+    }
     const h = Object.assign({}, r.headers);
     /* الكوكيز بتيجي Secure من الموقع، و127.0.0.1 على http لازم تتشال منها */
     if (h['set-cookie']) {
       h['set-cookie'] = [].concat(h['set-cookie']).map((c) => String(c).replace(/;\s*secure/ig, ''));
     }
-    if (h.location && API_BASE && h.location.indexOf(API_BASE) === 0) {
-      h.location = h.location.slice(API_BASE.length) || '/';
+    if (h.location && baseUrl && h.location.indexOf(baseUrl) === 0) {
+      h.location = h.location.slice(baseUrl.length) || '/';
     }
     res.writeHead(r.statusCode || 502, h);
     r.pipe(res);
@@ -259,6 +276,16 @@ function proxyApi(req, res, targetPath) {
   if (req.method === 'GET' || req.method === 'HEAD') pre.end();
   else req.pipe(pre);
 }
+
+/* ربط Google من داخل الديسكتوب: OAuth محلي وتخزين الرمز على الجهاز
+   (مش كوكي متصفح) — عشان الربط يوصل للتطبيق فعلاً. */
+const google = createGoogle({
+  dataDir: DATA_DIR,
+  json: json,
+  readBody: readBody,
+  getPort: function () { return currentPort; },
+  client: function () { return GOOGLE_CLIENT; }
+});
 
 const server = http.createServer(async (req, res) => {
   let pathname = '/';
@@ -305,6 +332,16 @@ const server = http.createServer(async (req, res) => {
     try { json(res, 200, { ok: true, data: loadAll() }); }
     catch (e) { json(res, 500, { ok: false, error: String(e && e.message) }); }
     return;
+  }
+
+  /* ---------- Google Drive محليًا (بدون الاعتماد على الموقع) ---------- */
+  if (pathname.indexOf('/api/google/') === 0) {
+    try {
+      if (await google.handle(req, res, pathname)) return;
+    } catch (e) {
+      if (!res.headersSent) json(res, 500, { ok: false, error: (e && e.message) || 'خطأ داخلي في ربط Google' });
+      return;
+    }
   }
 
   /* ---------- مرَّر واجهات API لخادم الويب إن وُجد ---------- */

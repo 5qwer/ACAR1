@@ -30,6 +30,7 @@
       "main.js",
       "preload.js",
       "server.js",
+      "google.js",
       "google-client.json",
       {
         "from": "../dist",

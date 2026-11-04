@@ -33,8 +33,10 @@ const dom = new JSDOM(html, {
     window.sessionStorage.setItem('app_splash_shown', '1');
     const orig = window.setTimeout;
     window.__delays = [];
+    window.__timers = [];
     window.setTimeout = function (fn, ms) {
       try { window.__delays.push(Number(ms)); } catch (e) {}
+      try { window.__timers.push({ fn: fn, ms: Number(ms) }); } catch (e) {}
       return orig.apply(window, arguments);
     };
   },
@@ -66,6 +68,21 @@ const ok = (n, c, x) => { if (c) { pass++; console.log('  PASS  ' + n); } else {
   window.toast('رسالة تانية');
   ok('ظهر تاني', !!(t && t.classList.contains('show')));
   ok('النص اتحدّث', ((t && t.textContent) || '').indexOf('رسالة تانية') > -1);
+
+  console.log('\n[3ب] الاختفاء التلقائي بعد 15 ثانية');
+  const hideTimers = (window.__timers || []).filter((x) => x.ms === 15000);
+  ok('اتجدول مؤقّت الاختفاء', hideTimers.length > 0, String(hideTimers.length));
+  if (hideTimers.length) hideTimers[hideTimers.length - 1].fn();
+  ok('الإشعار اختفى لوحده', !(t && t.classList.contains('show')));
+
+  console.log('\n[3ج] نفس الرسالة ما بتجدّدش العدّاد');
+  window.toast('رسالة مكرّرة');
+  const before = (window.__timers || []).filter((x) => x.ms === 15000).length;
+  window.toast('رسالة مكرّرة');
+  window.toast('رسالة مكرّرة');
+  const after = (window.__timers || []).filter((x) => x.ms === 15000).length;
+  ok('ما اتجدّدش مؤقّت جديد', after === before, before + ' -> ' + after);
+  ok('لسه ظاهر', !!(t && t.classList.contains('show')));
 
   console.log('\n[4] مفيش أخطاء');
   ok('بدون أخطاء تشغيل', errors.length === 0, errors.slice(0, 2).join(' | '));
