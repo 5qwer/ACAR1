@@ -4893,6 +4893,22 @@
   window.runGoogleCheck = runGoogleCheck;
   window.renderGoogleDiag = renderGoogleDiag;
 
+  /* ربط Google بايظ أو متشال؟ ننزّل الملف على الجهاز فورًا بدل ما يضيع + نعرض تجديد الربط */
+  function handleDriveReauth(e, bytes, name, mime) {
+    if (!e || !(e.reauth || e.needsConnect)) return false;
+    driveState.connected = false;
+    try {
+      if (typeof ExportKit !== 'undefined' && ExportKit.downloadBytes) ExportKit.downloadBytes(bytes, name, mime);
+    } catch (e2) { /* التنزيل اختياري */ }
+    toast('انتهت صلاحية ربط Google — نزّلنا الملف على جهازك. اربط الحساب من جديد من «ربط Google Drive»', true);
+    try {
+      if (confirm('ربط Google محتاج تجديد. تفتح صفحة الربط الآن؟ (الملف اتنزّل على جهازك بالفعل)')) {
+        location.href = e.loginUrl || '/api/google/login';
+      }
+    } catch (e3) { /* المتصفح رفض confirm */ }
+    return true;
+  }
+
   function uploadToDrive(name, mime, b64) {
     return fetch('/api/google/upload', {
       method: 'POST',
@@ -4901,7 +4917,14 @@
       body: JSON.stringify({ name: name, mime: mime, b64: b64, dest: exportFolderMode() })
     }).then(function (r) {
       return r.json().then(function (j) {
-        if (!r.ok || !j.ok) throw new Error((j && j.error) || 'فشل الرفع');
+        if (!r.ok || !j.ok) {
+          var err = new Error((j && j.error) || 'فشل الرفع');
+          err.reauth = !!(j && j.reauth);
+          err.needsConnect = !!(j && j.needsConnect);
+          err.loginUrl = (j && j.loginUrl) || '/api/google/login';
+          if (err.reauth || err.needsConnect) driveState.connected = false;
+          throw err;
+        }
         return j;
       });
     });
@@ -4937,6 +4960,9 @@
           toast('تم الرفع إلى Google Drive ✓');
           try { notifyUploaded(name, mime, b64, r && r.link); } catch (e) {}
           return r;
+        }).catch(function (e) {
+          handleDriveReauth(e, bytes, name, mime);
+          throw e;
         });
       },
       goSettings: function () {
@@ -4961,6 +4987,7 @@
       })
       .then(function (r) { if (r) toast('وصل تنبيه البريد إلى ' + (r.to || 'بريدك') + ' ✓'); })
       .catch(function (e) {
+        if (handleDriveReauth(e, bytes, name, mime)) return;
         toast('فشل الرفع: ' + (e && e.message ? e.message : e), true);
       });
   }

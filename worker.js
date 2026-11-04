@@ -565,6 +565,37 @@ async function exchangeCode(env, code, redirectUri) {
   return j;
 }
 
+/* ---------- التعامل مع انتهاء صلاحية الربط ---------- */
+const REAUTH_MSG = 'انتهت صلاحية ربط Google — اضغط «ربط Google Drive» من الإعدادات عشان تجدّد الربط، وبعدها أعد التصدير.';
+
+function isDeadGrant(msg) {
+  return /invalid_grant|invalid_client|unauthorized_client|expired or revoked/i.test(String(msg || ''));
+}
+
+/* يمسح الربط الميت من القاعدة عشان الحالة تظهر «غير مربوط» بدل خطأ متكرر */
+async function dropConnection(env, conn) {
+  if (!conn) return;
+  tokenCache.delete(String(conn.client_token));
+  try {
+    await env.DB.prepare('DELETE FROM google_connections WHERE client_token = ?')
+      .bind(conn.client_token).run();
+  } catch (e) { /* تجاهل — الربط نفسه بايظ على أي حال */ }
+}
+
+/* ردّ موحّد: reauth:true يعني رمز الحساب اتلغى ولازم المستخدم يعيد الربط */
+async function authFailure(env, conn, e) {
+  const raw = String((e && e.message) || '');
+  const dead = isDeadGrant(raw);
+  if (dead) await dropConnection(env, conn);
+  return {
+    ok: false,
+    reauth: dead,
+    needsConnect: !dead,
+    loginUrl: '/api/google/login',
+    error: dead ? REAUTH_MSG : ('تعذّر تجديد ربط Google: ' + (raw || 'خطأ غير معروف'))
+  };
+}
+
 async function fetchProfile(accessToken) {
   try {
     const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
@@ -605,6 +636,23 @@ async function handleApi(request, env, pathname) {
     diag.connected = !!conn;
     diag.email = conn ? (conn.email || '') : '';
     return json(diag);
+  }
+
+  /* فحص صحة الربط الفعلي (تجديد الرمز) — بيفرّق بين «مربوط» و«مربوط لكن الرمز اتلغى» */
+  if (pathname === '/api/google/ping') {
+    const tok = readCookie(request, 'gconn');
+    if (!tok) return json({ ok: false, connected: false, reauth: false, needsConnect: true,
+      loginUrl: '/api/google/login', error: 'لم يتم ربط حساب Google' });
+    let conn = null;
+    try { await ensureSchema(env.DB); conn = await findConnection(env.DB, tok); } catch (e) { conn = null; }
+    if (!conn) return json({ ok: false, connected: false, reauth: true,
+      loginUrl: '/api/google/login', error: 'الربط غير صالح — أعد الربط من جديد' });
+    try {
+      await accessToken(env, conn);
+      return json({ ok: true, connected: true, email: conn.email || '' });
+    } catch (e) {
+      return json(Object.assign({ connected: false }, await authFailure(env, conn, e)));
+    }
   }
 
   /* فحص فعلي للمفاتيح مع Google — يفرّق بين client_id و secret */
@@ -828,7 +876,8 @@ async function handleApi(request, env, pathname) {
     if (!name || !b64) return json({ ok: false, error: 'بيانات الملف ناقصة' }, 400);
 
     const tok = readCookie(request, 'gconn');
-    if (!tok) return json({ ok: false, error: 'لم يتم ربط حساب Google' }, 401);
+    if (!tok) return json({ ok: false, reauth: false, needsConnect: true,
+      loginUrl: '/api/google/login', error: 'لم يتم ربط حساب Google' }, 401);
 
     let conn;
     try {
@@ -837,11 +886,12 @@ async function handleApi(request, env, pathname) {
     } catch (e) {
       return json({ ok: false, error: e.message || 'قاعدة البيانات غير جاهزة' }, 503);
     }
-    if (!conn) return json({ ok: false, error: 'الربط غير صالح — أعد الربط من جديد' }, 401);
+    if (!conn) return json({ ok: false, reauth: true, loginUrl: '/api/google/login',
+      error: 'الربط غير صالح — أعد الربط من جديد' }, 401);
 
     let at;
     try { at = await accessToken(env, conn); }
-    catch (e) { return json({ ok: false, error: 'انتهت صلاحية الربط: ' + e.message }, 401); }
+    catch (e) { return json(await authFailure(env, conn, e), 401); }
 
     /* وجهة الرفع: مجلد التصدير المخصص أو بدون مجلد */
     let parentId = '';
@@ -946,7 +996,8 @@ async function handleApi(request, env, pathname) {
     if (!name) return json({ ok: false, error: 'بيانات الملف ناقصة' }, 400);
 
     const tok = readCookie(request, 'gconn');
-    if (!tok) return json({ ok: false, error: 'لم يتم ربط حساب Google' }, 401);
+    if (!tok) return json({ ok: false, reauth: false, needsConnect: true,
+      loginUrl: '/api/google/login', error: 'لم يتم ربط حساب Google' }, 401);
 
     let conn;
     try {
@@ -955,7 +1006,8 @@ async function handleApi(request, env, pathname) {
     } catch (e) {
       return json({ ok: false, error: e.message || 'قاعدة البيانات غير جاهزة' }, 503);
     }
-    if (!conn) return json({ ok: false, error: 'الربط غير صالح — أعد الربط من جديد' }, 401);
+    if (!conn) return json({ ok: false, reauth: true, loginUrl: '/api/google/login',
+      error: 'الربط غير صالح — أعد الربط من جديد' }, 401);
 
     /* افتراضي: بريد الحساب المربوط نفسه */
     const target = to || String(conn.email || '').trim();
@@ -968,7 +1020,7 @@ async function handleApi(request, env, pathname) {
 
     let at;
     try { at = await accessToken(env, conn); }
-    catch (e) { return json({ ok: false, error: 'انتهت صلاحية الربط: ' + e.message }, 401); }
+    catch (e) { return json(await authFailure(env, conn, e), 401); }
 
     const raw = base64UrlFromAscii(buildMailMessage({
       to: target,
@@ -1010,7 +1062,7 @@ async function handleApi(request, env, pathname) {
 
     let at;
     try { at = await accessToken(env, conn); }
-    catch (e) { return json({ ok: false, error: 'انتهت صلاحية الربط: ' + e.message }, 401); }
+    catch (e) { return json(await authFailure(env, conn, e), 401); }
 
     let folderId;
     try { folderId = await getOrCreateSyncFolder(env, at); }
@@ -1069,7 +1121,7 @@ async function handleApi(request, env, pathname) {
 
     let at;
     try { at = await accessToken(env, conn); }
-    catch (e) { return json({ ok: false, error: 'انتهت صلاحية الربط: ' + e.message }, 401); }
+    catch (e) { return json(await authFailure(env, conn, e), 401); }
 
     const jsonText = JSON.stringify(cleanSnapshot(snapshot));
     if (jsonText.length > MAX_SYNC_BYTES) {
@@ -1201,7 +1253,7 @@ async function handleApi(request, env, pathname) {
 
     let at;
     try { at = await accessToken(env, conn); }
-    catch (e) { return json({ ok: false, error: 'انتهت صلاحية الربط: ' + e.message }, 401); }
+    catch (e) { return json(await authFailure(env, conn, e), 401); }
 
     let folderId;
     try { folderId = await getOrCreateSyncFolder(env, at); }
@@ -1257,7 +1309,7 @@ async function handleApi(request, env, pathname) {
 
     let at;
     try { at = await accessToken(env, conn); }
-    catch (e) { return json({ ok: false, error: 'انتهت صلاحية الربط: ' + e.message }, 401); }
+    catch (e) { return json(await authFailure(env, conn, e), 401); }
 
     /* نتأكد إن الملف فعلاً داخل فولدر المزامنة واسمه من صيغتنا */
     let meta;

@@ -413,6 +413,8 @@
           toastMsg('تم رفع ' + label + ' على Drive ✓' + (r && r.link ? ' — ' + r.link : ''));
         })
         .catch(function (err) {
+          /* انتهاء الربط: app.js نزّل الملف وعرض تجديد الربط بالفعل */
+          if (err && (err.reauth || err.needsConnect)) return;
           toastMsg('فشل الرفع: ' + (err && err.message ? err.message : err), true);
         });
     });

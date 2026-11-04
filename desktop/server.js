@@ -2,7 +2,9 @@
    desktop/server.js — خادم النسخة المكتبية (Portable)
    ------------------------------------------------------------
    • يقدّم ملفات dist/ على 127.0.0.1 فقط (محلي بلا إنترنت)
-   • الحفظ في قاعدة بيانات SQLite (ملف data/nizam.db) بدل
+   • الحفظ في قاعدة بيانات محلية (ملف data/nizam.db، ولو Node
+     اللي جوه Electron مافيهاش node:sqlite نستخدم data/nizam-store.json)
+     بدل
      الاعتماد على localStorage وحدها — يعني البيانات بتفضل
      موجودة حتى لو اتمسح كاش المتصفح أو اتغيّر المتصفح.
    • /local/boot.js   ← يحمّل البيانات من SQLite قبل تشغيل التطبيق
@@ -19,7 +21,11 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { DatabaseSync } = require('node:sqlite');
+/* node:sqlite موجودة في Node 22.5+ (زي ما بيشتغل الخادم العادي)،
+   لكن Electron 33 شايل Node 20 فمافيهاش الوحدة دي — لو مش موجودة
+   بنستخدم مخزن JSON بنفس الواجهة بدل ما التطبيق يقع وقت التشغيل. */
+let DatabaseSync = null;
+try { DatabaseSync = require('node:sqlite').DatabaseSync; } catch (e) { DatabaseSync = null; }
 
 /* في التطوير: __dirname = desktop/ والملفات في ../dist
    في النسخة المجمّعة: __dirname = جذر التطبيق وفيه dist مباشرة */
@@ -59,45 +65,96 @@ let db = null;
 function openDb() {
   if (db) return db;
   fs.mkdirSync(DATA_DIR, { recursive: true });
-  db = new DatabaseSync(DB_FILE);
-  db.exec('CREATE TABLE IF NOT EXISTS kv (' +
-    'key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL)');
-  db.exec('CREATE TABLE IF NOT EXISTS meta (' +
-    'key TEXT PRIMARY KEY, value TEXT NOT NULL)');
-  db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)')
-    .run('opened_at', new Date().toISOString());
+  const wantsJson = String(process.env.NIZAM_STORE || '').toLowerCase() === 'json';
+  db = (!wantsJson && DatabaseSync) ? makeSqliteStore() : makeJsonStore();
   return db;
 }
 
+/* مخزن SQLite — الواجهة الوحيدة اللي بقية الملف بيستعملها */
+function makeSqliteStore() {
+  const d = new DatabaseSync(DB_FILE);
+  d.exec('CREATE TABLE IF NOT EXISTS kv (' +
+    'key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL)');
+  d.exec('CREATE TABLE IF NOT EXISTS meta (' +
+    'key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+  d.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)')
+    .run('opened_at', new Date().toISOString());
+  return {
+    engine: 'sqlite',
+    file: DB_FILE,
+    loadAll: function () {
+      const out = {};
+      const rows = d.prepare('SELECT key, value FROM kv').all();
+      for (const r of rows) out[r.key] = r.value;
+      return out;
+    },
+    putKey: function (key, value) {
+      if (value === null || value === undefined) {
+        d.prepare('DELETE FROM kv WHERE key = ?').run(key);
+      } else {
+        d.prepare('INSERT OR REPLACE INTO kv (key, value, updated_at) VALUES (?, ?, ?)')
+          .run(key, String(value), new Date().toISOString());
+      }
+    },
+    count: function () {
+      return Number(d.prepare('SELECT COUNT(*) AS c FROM kv').get().c || 0);
+    },
+    close: function () { try { d.close(); } catch (e) {} }
+  };
+}
+
+/* مخزن JSON بديل — نفس الواجهة، ملف واحد في مجلد البيانات */
+function makeJsonStore() {
+  const FILE = path.join(DATA_DIR, 'nizam-store.json');
+  let data = null;
+  function read() {
+    if (data) return data;
+    try { data = JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch (e) { data = null; }
+    if (!data || typeof data !== 'object' || !data.kv || typeof data.kv !== 'object') {
+      data = { version: 1, kv: {} };
+    }
+    return data;
+  }
+  function flush() {
+    const tmp = FILE + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(read()));
+    try { fs.renameSync(tmp, FILE); }
+    catch (e) { try { fs.unlinkSync(tmp); } catch (e2) {} throw e; }
+  }
+  return {
+    engine: 'json',
+    file: FILE,
+    loadAll: function () { return Object.assign({}, read().kv); },
+    putKey: function (key, value) {
+      const d = read();
+      if (value === null || value === undefined) delete d.kv[key];
+      else d.kv[key] = String(value);
+      flush();
+    },
+    count: function () { return Object.keys(read().kv).length; },
+    close: function () {}
+  };
+}
+
 function loadAll() {
-  const out = {};
-  const rows = openDb().prepare('SELECT key, value FROM kv').all();
-  for (const r of rows) out[r.key] = r.value;
-  return out;
+  return openDb().loadAll();
 }
 
 function putKey(key, value) {
-  const d = openDb();
-  if (value === null || value === undefined) {
-    d.prepare('DELETE FROM kv WHERE key = ?').run(key);
-  } else {
-    d.prepare('INSERT OR REPLACE INTO kv (key, value, updated_at) VALUES (?, ?, ?)')
-      .run(key, String(value), new Date().toISOString());
-  }
+  openDb().putKey(key, value === null || value === undefined ? null : String(value));
 }
 
 function dbStats() {
   const d = openDb();
-  const n = Number(d.prepare('SELECT COUNT(*) AS c FROM kv').get().c || 0);
   let bytes = 0;
-  try { bytes = fs.statSync(DB_FILE).size; } catch (e) {}
-  return { keys: n, bytes: bytes, file: DB_FILE };
+  try { bytes = fs.statSync(d.file).size; } catch (e) {}
+  return { keys: d.count(), bytes: bytes, file: d.file, engine: d.engine };
 }
 
 /* جافاسكربت يُحقن قبل app.js: يزرع البيانات من SQLite ثم يعرّف خطّاف المزامنة */
 function bootJs() {
   const data = JSON.stringify(loadAll());
-  return '/* نسخة مكتبية — تحميل البيانات من SQLite قبل تشغيل التطبيق */\n' +
+  return '/* نسخة مكتبية — تحميل البيانات من قاعدة البيانات المحلية قبل تشغيل التطبيق */\n' +
     '(function () {\n' +
     '  var DATA = ' + data + ';\n' +
     '  var ls = window.localStorage;\n' +
@@ -188,7 +245,7 @@ const server = http.createServer(async (req, res) => {
   }
   if (pathname === '/local/nizam.db') {
     try {
-      const buf = fs.readFileSync(DB_FILE);
+      const buf = fs.readFileSync(openDb().file);
       res.writeHead(200, {
         'Content-Type': 'application/octet-stream',
         'Content-Disposition': 'attachment; filename="nizam-backup.db"',
@@ -258,7 +315,7 @@ function start(port) {
   return new Promise((resolve, reject) => {
     server.once('error', reject);
     server.listen(p, '127.0.0.1', () => {
-      resolve({ server: server, port: server.address().port, db: DB_FILE });
+      resolve({ server: server, port: server.address().port, db: openDb().file });
     });
   });
 }
