@@ -105,6 +105,9 @@ function createWindow() {
     minHeight: 620,
     backgroundColor: '#0a0e15',
     title: 'نظام الإدارة المتكامل',
+    icon: fs.existsSync(path.join(__dirname, 'icons', 'icon-512.png'))
+      ? path.join(__dirname, 'icons', 'icon-512.png')
+      : path.join(__dirname, '..', 'icons', 'icon-512.png'),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -129,8 +132,16 @@ function createWindow() {
   });
 }
 
+/* منفذ ثابت لخادم الربط المحلي — عشان رابط إرجاع Google يبقى معروف
+   لو الحساب مسجّل كعميل ويب (عميل Desktop بيقبل أي منفذ على loopback). */
+const DEFAULT_APP_PORT = 47820;
+
 app.whenReady().then(async () => {
-  info = await server.start(0);   /* 0 = منفذ عشوائي آمن */
+  try {
+    info = await server.start(DEFAULT_APP_PORT);
+  } catch (e) {
+    info = await server.start(0);   /* المنفذ مشغول؟ منفذ عشوائي آمن */
+  }
 
   /* اسم وقائمة بسيطة بالعربية */
   Menu.setApplicationMenu(Menu.buildFromTemplate([

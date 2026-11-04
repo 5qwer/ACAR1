@@ -13,3 +13,6 @@ data/
 release/
 app.js.orig
 *.db
+
+# مفاتيح عميل Google للديسكتوب (سريه — المستخدم بيحطها محليًا)
+desktop/google-client.json

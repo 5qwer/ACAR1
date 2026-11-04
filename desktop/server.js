@@ -46,7 +46,16 @@ function resolveDataDir() {
 const DATA_DIR = resolveDataDir();
 const DB_FILE = path.join(DATA_DIR, 'nizam.db');
 const DEFAULT_PORT = Number(process.env.PORT || 4568);
-const API_BASE = String(process.env.NIZAM_API_BASE || '').replace(/\/+$/, '');
+/* خادم الويب اللي بيشغّل واجهات /api (ربط Google + المزامنة).
+   الديسكتوب بيستخدم الموقع المنشور افتراضيًا، وأي NIZAM_API_BASE
+   بيتغلّب عليه. */
+const DEFAULT_API_BASE = 'https://site-88abe32661714048a24e9bd63ac05f70.freebuff.page';
+const API_BASE = String(process.env.NIZAM_API_BASE || DEFAULT_API_BASE).replace(/\/+$/, '');
+
+/* مفاتيح عميل Google الخاص بالديسكتوب (عميل Desktop: يقبل أي منفذ loopback) */
+let GOOGLE_CLIENT = {};
+try { GOOGLE_CLIENT = require('./google-client.json') || {}; } catch (e) { GOOGLE_CLIENT = {}; }
+let currentPort = 0;
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -208,18 +217,42 @@ function readBody(req, limit) {
 
 /* تمرير /api/* لخادم الويب (اختياري) */
 function proxyApi(req, res, targetPath) {
-  const u = new URL(API_BASE + targetPath);
+  const isGoogle = targetPath.indexOf('/api/google/') === 0;
+  const isSync = targetPath.indexOf('/api/sync/') === 0;
+  let path = targetPath;
+
+  /* التطبيق المكتبي: رابط إرجاع على 127.0.0.1 عشان الجلسة ترجع هنا
+     بدل صفحة الموقع، والـstate cookie تتحفظ على نفس الأصل. */
+  if (isGoogle && currentPort && path.indexOf('redirect_uri=') < 0) {
+    path += (path.indexOf('?') >= 0 ? '&' : '?') +
+      'redirect_uri=' + encodeURIComponent('http://127.0.0.1:' + currentPort + '/api/google/callback');
+  }
+
+  const u = new URL(API_BASE + path);
+  const headers = Object.assign({}, req.headers, { host: u.host });
+  delete headers['accept-encoding'];
+  if (isGoogle || isSync) {
+    if (GOOGLE_CLIENT.client_id) headers['x-nizam-gid'] = GOOGLE_CLIENT.client_id;
+    if (GOOGLE_CLIENT.client_secret) headers['x-nizam-gsecret'] = GOOGLE_CLIENT.client_secret;
+  }
   const opts = {
     protocol: u.protocol,
     hostname: u.hostname,
     port: u.port || 443,
     path: u.pathname + u.search,
     method: req.method,
-    headers: Object.assign({}, req.headers, { host: u.host })
+    headers: headers
   };
-  delete opts.headers['accept-encoding'];
   const pre = (u.protocol === 'https:' ? require('https') : http).request(opts, (r) => {
-    res.writeHead(r.statusCode || 502, r.headers);
+    const h = Object.assign({}, r.headers);
+    /* الكوكيز بتيجي Secure من الموقع، و127.0.0.1 على http لازم تتشال منها */
+    if (h['set-cookie']) {
+      h['set-cookie'] = [].concat(h['set-cookie']).map((c) => String(c).replace(/;\s*secure/ig, ''));
+    }
+    if (h.location && API_BASE && h.location.indexOf(API_BASE) === 0) {
+      h.location = h.location.slice(API_BASE.length) || '/';
+    }
+    res.writeHead(r.statusCode || 502, h);
     r.pipe(res);
   });
   pre.on('error', () => json(res, 502, { ok: false, error: 'تعذّر الوصول لخادم الويب' }));
@@ -315,7 +348,8 @@ function start(port) {
   return new Promise((resolve, reject) => {
     server.once('error', reject);
     server.listen(p, '127.0.0.1', () => {
-      resolve({ server: server, port: server.address().port, db: openDb().file });
+      currentPort = server.address().port;
+      resolve({ server: server, port: currentPort, db: openDb().file });
     });
   });
 }

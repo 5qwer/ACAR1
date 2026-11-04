@@ -1,0 +1,5 @@
+{
+  "client_id": "PUT-YOUR-DESKTOP-CLIENT-ID.apps.googleusercontent.com",
+  "client_secret": "PUT-YOUR-DESKTOP-CLIENT-SECRET",
+  "note": "انسخ الملف لـ google-client.json وحط مفاتيح عميل Desktop من Google Cloud. الملف الحقيقي مستبعد من git."
+}

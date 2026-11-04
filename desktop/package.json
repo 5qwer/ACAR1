@@ -30,6 +30,7 @@
       "main.js",
       "preload.js",
       "server.js",
+      "google-client.json",
       {
         "from": "../dist",
         "to": "dist",
@@ -46,8 +47,7 @@
       }
     ],
     "win": {
-      "icon": "../icons/icon-512.png",
-      "signAndEditExecutable": false,
+      "icon": "../icons/icon-source-1024.png",
       "target": [
         {
           "target": "nsis",

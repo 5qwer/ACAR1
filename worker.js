@@ -104,9 +104,19 @@ function cleanEnvVal(v) {
 }
 
 /* المفاتيح كما هي صالحة للاستخدام فعلاً (بعد التنظيف والتحقق) */
-function googleCreds(env) {
-  var id = cleanEnvVal(env && env.GOOGLE_CLIENT_ID);
-  var secret = cleanEnvVal(env && env.GOOGLE_CLIENT_SECRET);
+function googleCreds(env, request) {
+  /* التطبيق المكتبي بيعتمد عميل Google من نوع Desktop (يقبل أي منفذ
+     على 127.0.0.1) وببعته في هيدرز من خادمه المحلي — الموقع المنشور
+     يفضل شغال بعميله هو من غير أي تغيير. */
+  var hId = '', hSecret = '';
+  try {
+    if (request && request.headers) {
+      hId = cleanEnvVal(request.headers.get('x-nizam-gid'));
+      hSecret = cleanEnvVal(request.headers.get('x-nizam-gsecret'));
+    }
+  } catch (e) { hId = ''; hSecret = ''; }
+  var id = cleanEnvVal(hId || (env && env.GOOGLE_CLIENT_ID));
+  var secret = cleanEnvVal(hSecret || (env && env.GOOGLE_CLIENT_SECRET));
   var idValid = /^\d{6,}-[a-z0-9_-]{10,}\.apps\.googleusercontent\.com$/i.test(id);
   var secretValid = /^GOCSPX-[A-Za-z0-9_-]{8,}$/.test(secret) || secret.length >= 24;
   return {
@@ -135,6 +145,28 @@ function originFor(request, env) {
   var forced = cleanEnvVal(env && (env.APP_BASE_URL || env.PUBLIC_ORIGIN || env.APP_ORIGIN));
   if (/^https?:\/\//i.test(forced)) return forced.replace(/\/+$/, '');
   return originOf(request);
+}
+
+/* رابط إرجاع مخصّص للتطبيق المكتبي: loopback فقط (127.0.0.1 / localhost).
+   عميل Google من نوع Desktop بيقبل أي منفذ على loopback، وعميل الويب
+   محتاج تسجيل نفس الرابط بالظبط. */
+function loopbackRedirect(request) {
+  try {
+    var q = new URL(request.url).searchParams.get('redirect_uri');
+    if (q && /^http:\/\/(127\.0\.0\.1|localhost)(:\d{1,5})?\/api\/google\/callback$/.test(q)) return q;
+  } catch (e) { /* تجاهل */ }
+  return '';
+}
+
+function redirectUriFor(request, env) {
+  return loopbackRedirect(request) || (originFor(request, env) + '/api/google/callback');
+}
+
+/* بعد الربط نرجّع المستخدم لنفس الأصول اللي بدأ منها (الديسكتوب = 127.0.0.1) */
+function backTo(request, env, qs) {
+  var lb = loopbackRedirect(request);
+  if (lb) return lb.replace(/\/api\/google\/callback$/, '') + '/' + qs;
+  return '/' + qs;
 }
 
 /* ---------- D1 ---------- */
@@ -523,8 +555,9 @@ function buildMailMessage(o) {
 /* ---------- رموز الوصول ---------- */
 const tokenCache = new Map();
 
-async function accessToken(env, conn) {
-  const key = String(conn.client_token);
+async function accessToken(env, conn, creds) {
+  const c = creds || googleCreds(env);
+  const key = String(conn.client_token) + '|' + c.id;
   const hit = tokenCache.get(key);
   if (hit && hit.exp > Date.now() + 60000) return hit.tok;
 
@@ -532,8 +565,8 @@ async function accessToken(env, conn) {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      client_id: googleCreds(env).id,
-      client_secret: googleCreds(env).secret,
+      client_id: c.id,
+      client_secret: c.secret,
       refresh_token: conn.refresh_token,
       grant_type: 'refresh_token'
     }).toString()
@@ -546,13 +579,14 @@ async function accessToken(env, conn) {
   return j.access_token;
 }
 
-async function exchangeCode(env, code, redirectUri) {
+async function exchangeCode(env, code, redirectUri, creds) {
+  const c = creds || googleCreds(env);
   const res = await fetch(TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      client_id: googleCreds(env).id,
-      client_secret: googleCreds(env).secret,
+      client_id: c.id,
+      client_secret: c.secret,
       code: code,
       redirect_uri: redirectUri,
       grant_type: 'authorization_code'
@@ -609,11 +643,13 @@ async function fetchProfile(accessToken) {
 /* ---------- مسارات API ---------- */
 async function handleApi(request, env, pathname) {
   const origin = originOf(request);
+  /* مفاتيح المشروع — ممكن التطبيق المكتبي يبعت مفاتيحه الخاصة (عميل Desktop) */
+  const reqCreds = googleCreds(env, request);
 
   /* الحالة + تشخيص المفاتيح (بدون أي كشف للسر) */
   if (pathname === '/api/google/status') {
-    const c = googleCreds(env);
-    const redirectUri = originFor(request, env) + '/api/google/callback';
+    const c = reqCreds;
+    const redirectUri = redirectUriFor(request, env);
     const diag = {
       configured: c.configured,
       connected: false,
@@ -648,7 +684,7 @@ async function handleApi(request, env, pathname) {
     if (!conn) return json({ ok: false, connected: false, reauth: true,
       loginUrl: '/api/google/login', error: 'الربط غير صالح — أعد الربط من جديد' });
     try {
-      await accessToken(env, conn);
+      await accessToken(env, conn, reqCreds);
       return json({ ok: true, connected: true, email: conn.email || '' });
     } catch (e) {
       return json(Object.assign({ connected: false }, await authFailure(env, conn, e)));
@@ -657,8 +693,8 @@ async function handleApi(request, env, pathname) {
 
   /* فحص فعلي للمفاتيح مع Google — يفرّق بين client_id و secret */
   if (pathname === '/api/google/check') {
-    const c = googleCreds(env);
-    const redirectUri = originFor(request, env) + '/api/google/callback';
+    const c = reqCreds;
+    const redirectUri = redirectUriFor(request, env);
     const out = {
       ok: true,
       verdict: '',
@@ -759,14 +795,14 @@ async function handleApi(request, env, pathname) {
     return json(out, 200);
   }
 
-  if (!configured(env)) {
+  if (!reqCreds.configured) {
     return json({ ok: false, error: 'لم يتم ضبط مفاتيح Google بعد (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET)' }, 503);
   }
 
   /* بدء الربط */
   if (pathname === '/api/google/login') {
-    const creds = googleCreds(env);
-    const redirectUri = originFor(request, env) + '/api/google/callback';
+    const creds = reqCreds;
+    const redirectUri = redirectUriFor(request, env);
 
     /* ما نبعتش المستخدم لصفحة خطأ جوجل: نفحص الـclient_id الأول */
     var early = '';
@@ -793,7 +829,7 @@ async function handleApi(request, env, pathname) {
         }
       } catch (e) { /* فحص الشبكة فشل — نكمل عادي */ }
     }
-    if (early) return redirect('/?g=err&m=' + encodeURIComponent(early), []);
+    if (early) return redirect(backTo(request, env, '?g=err&m=' + encodeURIComponent(early)), []);
 
     const state = crypto.randomUUID();
     const url = new URL(AUTH_URL);
@@ -820,16 +856,16 @@ async function handleApi(request, env, pathname) {
       const errText = err === 'access_denied'
         ? 'تم إلغاء منح الإذن من حساب Google (access_denied) — جرّب تختار حسابك وتضغط «السماح».'
         : 'Google رد بخطأ: ' + err + (desc ? ' — ' + desc : '');
-      return redirect('/?g=err&m=' + encodeURIComponent(errText), [cookie('gstate', '', -1)]);
+      return redirect(backTo(request, env, '?g=err&m=' + encodeURIComponent(errText)), [cookie('gstate', '', -1)]);
     }
-    if (!code) return redirect('/?g=err&m=' + encodeURIComponent('لم يصل رمز التفويض'), [cookie('gstate', '', -1)]);
+    if (!code) return redirect(backTo(request, env, '?g=err&m=' + encodeURIComponent('لم يصل رمز التفويض')), [cookie('gstate', '', -1)]);
     if (!saved || !state || saved !== state) {
-      return redirect('/?g=err&m=' + encodeURIComponent('تحقّق الحالة غير صالح، حاول مرة أخرى'),
+      return redirect(backTo(request, env, '?g=err&m=' + encodeURIComponent('تحقّق الحالة غير صالح، حاول مرة أخرى')),
         [cookie('gstate', '', -1)]);
     }
 
     try {
-      const tok = await exchangeCode(env, code, originFor(request, env) + '/api/google/callback');
+      const tok = await exchangeCode(env, code, redirectUriFor(request, env), reqCreds);
       const receivedRefresh = !!tok.refresh_token;
       const email = await fetchProfile(tok.access_token);
       let clientToken = crypto.randomUUID();
@@ -856,12 +892,12 @@ async function handleApi(request, env, pathname) {
         exp: Date.now() + (Number(tok.expires_in || 3500) * 1000)
       });
 
-      return redirect('/?g=ok', [
+      return redirect(backTo(request, env, '?g=ok'), [
         cookie('gstate', '', -1),
         cookie('gconn', clientToken, 60 * 60 * 24 * 365)
       ]);
     } catch (e) {
-      return redirect('/?g=err&m=' + encodeURIComponent(e.message || 'فشل الربط'),
+      return redirect(backTo(request, env, '?g=err&m=' + encodeURIComponent(e.message || 'فشل الربط')),
         [cookie('gstate', '', -1)]);
     }
   }
@@ -890,7 +926,7 @@ async function handleApi(request, env, pathname) {
       error: 'الربط غير صالح — أعد الربط من جديد' }, 401);
 
     let at;
-    try { at = await accessToken(env, conn); }
+    try { at = await accessToken(env, conn, reqCreds); }
     catch (e) { return json(await authFailure(env, conn, e), 401); }
 
     /* وجهة الرفع: مجلد التصدير المخصص أو بدون مجلد */
@@ -1019,7 +1055,7 @@ async function handleApi(request, env, pathname) {
     }
 
     let at;
-    try { at = await accessToken(env, conn); }
+    try { at = await accessToken(env, conn, reqCreds); }
     catch (e) { return json(await authFailure(env, conn, e), 401); }
 
     const raw = base64UrlFromAscii(buildMailMessage({
@@ -1061,7 +1097,7 @@ async function handleApi(request, env, pathname) {
     catch (e) { return json({ ok: false, error: e.message }, e.status || 500); }
 
     let at;
-    try { at = await accessToken(env, conn); }
+    try { at = await accessToken(env, conn, reqCreds); }
     catch (e) { return json(await authFailure(env, conn, e), 401); }
 
     let folderId;
@@ -1120,7 +1156,7 @@ async function handleApi(request, env, pathname) {
     catch (e) { return json({ ok: false, error: e.message }, e.status || 500); }
 
     let at;
-    try { at = await accessToken(env, conn); }
+    try { at = await accessToken(env, conn, reqCreds); }
     catch (e) { return json(await authFailure(env, conn, e), 401); }
 
     const jsonText = JSON.stringify(cleanSnapshot(snapshot));
@@ -1252,7 +1288,7 @@ async function handleApi(request, env, pathname) {
     catch (e) { return json({ ok: false, error: e.message }, e.status || 500); }
 
     let at;
-    try { at = await accessToken(env, conn); }
+    try { at = await accessToken(env, conn, reqCreds); }
     catch (e) { return json(await authFailure(env, conn, e), 401); }
 
     let folderId;
@@ -1308,7 +1344,7 @@ async function handleApi(request, env, pathname) {
     catch (e) { return json({ ok: false, error: e.message }, e.status || 500); }
 
     let at;
-    try { at = await accessToken(env, conn); }
+    try { at = await accessToken(env, conn, reqCreds); }
     catch (e) { return json(await authFailure(env, conn, e), 401); }
 
     /* نتأكد إن الملف فعلاً داخل فولدر المزامنة واسمه من صيغتنا */
