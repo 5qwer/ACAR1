@@ -5,11 +5,97 @@
    ============================================================ */
 'use strict';
 
-const { app, BrowserWindow, shell, Menu } = require('electron');
+const { app, BrowserWindow, shell, Menu, ipcMain, dialog } = require('electron');
+const fs = require('fs');
+const path = require('path');
 const server = require('./server');
 
 let win = null;
 let info = null;
+
+/* ---------- فولدر نسخ البيانات على قرص الجهاز ---------- */
+const BACKUP_CFG = path.join(app.getPath('userData'), 'local-backup.json');
+
+function readBackupCfg() {
+  try { return JSON.parse(fs.readFileSync(BACKUP_CFG, 'utf8')) || {}; } catch (e) { return {}; }
+}
+function writeBackupCfg(cfg) {
+  try {
+    fs.mkdirSync(path.dirname(BACKUP_CFG), { recursive: true });
+    fs.writeFileSync(BACKUP_CFG, JSON.stringify(cfg || {}));
+  } catch (e) { /* ما نمنعش الواجهة بسبب فشل الحفظ */ }
+}
+function backupInfo() {
+  const c = readBackupCfg();
+  let count = 0;
+  try {
+    if (c.folder) count = fs.readdirSync(c.folder).filter(f => /^nizam-backup-.*\.json$/.test(f)).length;
+  } catch (e) { count = 0; }
+  return { folder: c.folder || '', lastAt: c.lastAt || '', count: count };
+}
+/* نحفظ آخر 60 نسخة JSON بس — عشان الفولدر ما يتضخمش */
+function pruneBackups(folder) {
+  try {
+    const files = fs.readdirSync(folder).filter(f => /^nizam-backup-\d{8}-\d{6}\.json$/.test(f)).sort();
+    while (files.length > 60) {
+      try { fs.unlinkSync(path.join(folder, files.shift())); } catch (e) { /* تخطي */ }
+    }
+  } catch (e) { /* تخطي */ }
+}
+function safeName(name) {
+  return String(name || '').replace(/[\\/:*?"<>|]/g, '_').replace(/\.\.+/g, '.').slice(0, 180);
+}
+
+ipcMain.handle('backup:info', () => backupInfo());
+
+ipcMain.handle('backup:pick', async () => {
+  const opts = {
+    title: 'اختار فولدر نسخ البيانات',
+    buttonLabel: 'ربط الفولدر',
+    properties: ['openDirectory', 'createDirectory']
+  };
+  const r = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts);
+  if (!r || r.canceled || !r.filePaths || !r.filePaths[0]) return backupInfo();
+  const cfg = readBackupCfg();
+  cfg.folder = r.filePaths[0];
+  writeBackupCfg(cfg);
+  return backupInfo();
+});
+
+ipcMain.handle('backup:clear', () => {
+  const cfg = readBackupCfg();
+  delete cfg.folder;
+  delete cfg.lastAt;
+  writeBackupCfg(cfg);
+  return backupInfo();
+});
+
+ipcMain.handle('backup:save', (e, payload) => {
+  const cfg = readBackupCfg();
+  if (!cfg.folder) throw new Error('لم يتم اختيار فولدر');
+  const name = safeName(payload && payload.name);
+  if (!name) throw new Error('اسم ملف غير صالح');
+  fs.mkdirSync(cfg.folder, { recursive: true });
+  fs.writeFileSync(path.join(cfg.folder, name), String((payload && payload.text) || ''));
+  cfg.lastAt = new Date().toISOString();
+  writeBackupCfg(cfg);
+  pruneBackups(cfg.folder);
+  return backupInfo();
+});
+
+ipcMain.handle('backup:saveBinary', (e, payload) => {
+  const cfg = readBackupCfg();
+  if (!cfg.folder) throw new Error('لم يتم اختيار فولدر');
+  const name = safeName(payload && payload.name);
+  if (!name) throw new Error('اسم ملف غير صالح');
+  const buf = Buffer.from(String((payload && payload.base64) || ''), 'base64');
+  if (!buf || !buf.length) throw new Error('الملف فاضي');
+  fs.mkdirSync(cfg.folder, { recursive: true });
+  fs.writeFileSync(path.join(cfg.folder, name), buf);
+  cfg.lastAt = new Date().toISOString();
+  writeBackupCfg(cfg);
+  return backupInfo();
+});
 
 function createWindow() {
   win = new BrowserWindow({
@@ -23,6 +109,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      preload: path.join(__dirname, 'preload.js'),
       spellcheck: false
     }
   });

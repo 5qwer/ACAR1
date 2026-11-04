@@ -389,6 +389,9 @@
         '<button type="button" class="period-save__btn" data-save="device">⬇️ تنزيل على الجهاز</button>' +
         '<button type="button" class="period-save__btn period-save__btn--drive" data-save="drive"' +
           (connected ? '' : ' disabled') + '>☁️ رفع إلى Google Drive</button>' +
+        (window.NizamLocalBackup && window.NizamLocalBackup.isReady && window.NizamLocalBackup.isReady()
+          ? '<button type="button" class="period-save__btn" data-save="local">💾 حفظ في فولدر الجهاز</button>'
+          : '') +
         (connected ? '' : '<p class="period-save__hint">اربط حساب Google من الإعدادات عشان ترفع الملفات على Drive.</p>') +
         '<button type="button" class="period-save__cancel" data-save="cancel">إلغاء</button>' +
       '</div>';
@@ -403,6 +406,14 @@
       if (where === 'device') {
         ExportKit.downloadBytes(bytes, name, mime);
         toastMsg('تم تنزيل ' + label + ' على الجهاز ✓');
+        return;
+      }
+      if (where === 'local') {
+        var lb = window.NizamLocalBackup;
+        if (!lb || !lb.saveFile) { toastMsg('فولدر الجهاز غير متاح', true); return; }
+        Promise.resolve(lb.saveFile(name, mime, bytes))
+          .then(function () { toastMsg('اتحفظ ' + label + ' في فولدر الجهاز ✓'); })
+          .catch(function (err) { toastMsg('تعذّر الحفظ في فولدر الجهاز: ' + (err && err.message ? err.message : err), true); });
         return;
       }
       var drive = window.NizamDrive;

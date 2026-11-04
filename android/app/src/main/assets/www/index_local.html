@@ -1487,6 +1487,18 @@
         </div>
 
         <div class="panel" style="grid-column:1/-1">
+          <h3 class="panel__title"><svg viewBox="0 0 24 24" class="ico"><use href="#ic-save"/></svg> ربـط الداتا على قرص الجهاز</h3>
+          <p class="panel__hint">اختار فولدر من جهازك (زي الفولدر العام على جوجل درايف) وهتتحفظ فيه نسخة JSON من كل بياناتك تلقائيًا مع كل تعديل، وكمان ملفات PDF/Excel اللي تصدّرها تقدر تحفظها فيه مباشرة — بجانب Google Drive بدون ما يتأثر.</p>
+          <div class="drive-status" id="localFolderState"><span id="localFolderStateText">لم يتم اختيار فولدر بعد</span></div>
+          <div class="form__actions" style="margin:12px 0">
+            <button type="button" class="btn btn--primary" id="localFolderPick">📁 اختيار فولدر من الجهاز</button>
+            <button type="button" class="btn btn--ghost" id="localFolderSave" hidden>نسخ الآن</button>
+            <button type="button" class="btn btn--ghost" id="localFolderClear" hidden>إلغاء الربط</button>
+          </div>
+          <p class="panel__note" id="localFolderNote"></p>
+        </div>
+
+        <div class="panel" style="grid-column:1/-1">
           <h3 class="panel__title"><svg viewBox="0 0 24 24" class="ico"><use href="#ic-back"/></svg> المزامنة السحابية</h3>
           <p class="panel__hint">نسخة كاملة من كل بياناتك (العملاء، الموردون، الدواخل والخوارج، الشركاء، الجمعيات) بتترفع على فولدر <b>«نظام الإدارة — المزامنة»</b> داخل درايفك. تقدر تفتحه من أي جهاز، ودرفايف بيحفظ <b>نسخة سابقة</b> لكل تعديل — يعني تاريخ بياناتك كله محفوظ عندك.</p>
 

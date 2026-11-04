@@ -135,7 +135,7 @@
     if (id === 'operations') step(function () { renderOperations(); }, 'العمليات');
     if (id === 'settings') step(function () { renderDataSafety(); }, 'سلامة البيانات');
     if (id === 'supplier-profile') step(function () { fillPartyLists(); }, 'قوائم الأطراف');
-    if (id === 'settings') step(function () { renderExportGrid(); refreshDriveStatus(); loadSyncFolder(); renderNetworkToggle(); }, 'الإعدادات');
+    if (id === 'settings') step(function () { renderExportGrid(); refreshDriveStatus(); loadSyncFolder(); renderNetworkToggle(); renderLocalBackup(); }, 'الإعدادات');
     if (id === 'suppliers') step(function () {
       if (typeof renderSuppliers === 'function') renderSuppliers($('#supplierSearch') ? $('#supplierSearch').value : '');
     }, 'الموردين');
@@ -5460,6 +5460,277 @@
       renderCollection(colFilter()); renderCollectionSummary();
     } catch (e) { /* إعادة البناء تكمّلي */ }
     return Promise.resolve(true);
+  }
+
+  /* ---------- ربط الداتا على قرص الجهاز (نسخة محلية بجانب Drive) ---------- */
+  var lbState = { mode: '', folder: '', lastAt: '', timer: null, dirHandle: null, busy: null };
+  var LB_LAST_KEY = 'app_local_backup_last';
+  var LB_IDB = 'nizam_local_backup';
+
+  function lbBridge() {
+    return (typeof window !== 'undefined' && window.NizamLocalFolder) ? window.NizamLocalFolder : null;
+  }
+  function lbFmtDate(iso) {
+    try { return iso ? new Date(iso).toLocaleString('ar-EG') : ''; } catch (e) { return iso || ''; }
+  }
+  function lbReady() {
+    return !!(lbState.mode === 'electron' || (lbState.mode === 'web' && lbState.dirHandle));
+  }
+  function renderLocalBackup() {
+    var st = document.getElementById('localFolderStateText');
+    var box = document.getElementById('localFolderState');
+    var pick = document.getElementById('localFolderPick');
+    var save = document.getElementById('localFolderSave');
+    var clear = document.getElementById('localFolderClear');
+    var note = document.getElementById('localFolderNote');
+    var ready = lbReady() || lbState.mode === 'download';
+    if (box) box.className = 'drive-status' + (ready ? ' is-ok' : ' is-warn');
+    if (st) {
+      if (!ready) st.textContent = 'لم يتم اختيار فولدر بعد — البيانات محفوظة داخل التطبيق فقط.';
+      else if (lbState.mode === 'download') st.textContent = 'نسخة الجهاز: بتنزيل ملف JSON في مجلد التنزيلات (المتصفح ما بيدعمش اختيار فولدر).';
+      else st.textContent = 'فولدر الجهاز: ' + (lbState.folder || 'مختار') +
+        (lbState.lastAt ? ' — آخر نسخة: ' + lbFmtDate(lbState.lastAt) : ' — لسه ما اتحفظتش نسخة');
+    }
+    if (pick) pick.textContent = ready ? '📁 تغيير الفولدر' : '📁 اختيار فولدر من الجهاز';
+    if (save) save.hidden = !ready;
+    if (clear) clear.hidden = !(lbState.mode === 'electron' || lbState.mode === 'web');
+    if (note) {
+      note.innerHTML = ready
+        ? 'كل تعديل في البيانات بيتحفظ تلقائيًا في الفولدر كملف JSON (بجانب نسخة Google Drive)، وملفات PDF/Excel اللي تصدّرها تقدر تحفظها هناك. آخر ٦٠ نسخة بتتحفظ.'
+        : (lbBridge()
+          ? 'هيفتحلك نافذة تختار منها فولدر على جهازك وتتحفظ فيه نسخة JSON من كل بياناتك تلقائيًا + ملفات التصدير — بجانب Google Drive.'
+          : 'المتصفح ده ما بيدعمش اختيار فولدر مباشر — اضغط «اختيار فولدر» لتنزيل نسخة JSON في مجلد التنزيلات.');
+    }
+  }
+  function lbIdbOpen() {
+    return new Promise(function (res, rej) {
+      if (!window.indexedDB) return rej(new Error('no idb'));
+      var r = indexedDB.open(LB_IDB, 1);
+      r.onupgradeneeded = function () { try { r.result.createObjectStore('kv'); } catch (e) {} };
+      r.onsuccess = function () { res(r.result); };
+      r.onerror = function () { rej(r.error || new Error('idb')); };
+    });
+  }
+  function lbIdbSet(val) {
+    return lbIdbOpen().then(function (db) {
+      return new Promise(function (res, rej) {
+        var tx = db.transaction('kv', 'readwrite');
+        tx.objectStore('kv').put(val, 'dir');
+        tx.oncomplete = function () { res(val); };
+        tx.onerror = function () { rej(tx.error); };
+      });
+    });
+  }
+  function lbIdbGet() {
+    return lbIdbOpen().then(function (db) {
+      return new Promise(function (res, rej) {
+        var tx = db.transaction('kv', 'readonly');
+        var q = tx.objectStore('kv').get('dir');
+        q.onsuccess = function () { res(q.result || null); };
+        q.onerror = function () { rej(q.error); };
+      });
+    });
+  }
+  function lbIdbDel() {
+    return lbIdbOpen().then(function (db) {
+      return new Promise(function (res) {
+        var tx = db.transaction('kv', 'readwrite');
+        tx.objectStore('kv').delete('dir');
+        tx.oncomplete = function () { res(true); };
+      });
+    });
+  }
+  function lbDump() {
+    var data = {};
+    try {
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) data[k] = localStorage.getItem(k);
+      }
+    } catch (e) {}
+    return {
+      app: 'nizam-idara',
+      version: 1,
+      savedAt: new Date().toISOString(),
+      device: (typeof navigator !== 'undefined' && navigator.platform) ? navigator.platform : '',
+      snapshot: collectSnapshot(),
+      data: data
+    };
+  }
+  function lbStamp() {
+    var d = new Date();
+    var p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
+  }
+  function lbWriteText(name, text) {
+    var br = lbBridge();
+    if (br && br.saveText) return br.saveText(name, text);
+    if (lbState.dirHandle) {
+      return lbState.dirHandle.getFileHandle(name, { create: true })
+        .then(function (fh) { return fh.createWritable(); })
+        .then(function (w) { return w.write(text).then(function () { return w.close(); }); });
+    }
+    if (typeof ExportKit !== 'undefined' && ExportKit.downloadBytes && typeof TextEncoder === 'function') {
+      ExportKit.downloadBytes(new TextEncoder().encode(text), name, 'application/json');
+      return Promise.resolve({ downloaded: true });
+    }
+    return Promise.reject(new Error('مفيش طريقة للحفظ'));
+  }
+  function lbWriteBytes(name, mime, bytes) {
+    var br = lbBridge();
+    if (br && br.saveBinary) return br.saveBinary(name, ExportKit.bytesToBase64(bytes));
+    if (lbState.dirHandle) {
+      return lbState.dirHandle.getFileHandle(name, { create: true })
+        .then(function (fh) { return fh.createWritable(); })
+        .then(function (w) { return w.write(bytes).then(function () { return w.close(); }); });
+    }
+    if (typeof ExportKit !== 'undefined' && ExportKit.downloadBytes) {
+      ExportKit.downloadBytes(bytes, name, mime || 'application/octet-stream');
+      return Promise.resolve({ downloaded: true });
+    }
+    return Promise.reject(new Error('مفيش طريقة للحفظ'));
+  }
+  function lbSaveNow(manual) {
+    if (!lbReady() && lbState.mode !== 'download') {
+      if (manual) toast('اختار فولدر الجهاز الأول', true);
+      return Promise.resolve(null);
+    }
+    if (lbState.busy) return lbState.busy;
+    var json = JSON.stringify(lbDump());
+    var name = 'nizam-backup-' + lbStamp() + '.json';
+    lbState.busy = lbWriteText(name, json)
+      .then(function () { return lbWriteText('nizam-backup-latest.json', json); })
+      .then(function (r) {
+        lbState.lastAt = new Date().toISOString();
+        try { localStorage.setItem(LB_LAST_KEY, lbState.lastAt); } catch (e) {}
+        renderLocalBackup();
+        if (manual) toast('اتحفظت نسخة على فولدر الجهاز ✓');
+        return r;
+      })
+      .catch(function (e) {
+        if (manual) toast('تعذّر الحفظ في فولدر الجهاز: ' + (e && e.message ? e.message : e), true);
+        return null;
+      });
+    lbState.busy.then(function () { lbState.busy = null; });
+    return lbState.busy;
+  }
+  function lbSchedule() {
+    if (!lbReady()) return;
+    if (lbState.timer) clearTimeout(lbState.timer);
+    lbState.timer = setTimeout(function () {
+      lbState.timer = null;
+      lbSaveNow(false);
+    }, 6000);
+  }
+  function lbPick() {
+    var br = lbBridge();
+    if (br && br.pick) {
+      return br.pick().then(function (info) {
+        if (!info || !info.folder) return null;
+        lbState.mode = 'electron';
+        lbState.folder = info.folder;
+        lbState.lastAt = info.lastAt || '';
+        renderLocalBackup();
+        toast('تم ربط فولدر الجهاز: ' + info.folder);
+        return lbSaveNow(true);
+      }).catch(function (e) {
+        toast('تعذّر اختيار الفولدر: ' + (e && e.message ? e.message : e), true);
+      });
+    }
+    if (window.showDirectoryPicker) {
+      return window.showDirectoryPicker({ mode: 'readwrite' }).then(function (h) {
+        lbState.dirHandle = h;
+        lbState.mode = 'web';
+        lbState.folder = h.name || 'فولدر الجهاز';
+        try { lbIdbSet(h).catch(function () {}); } catch (e) {}
+        renderLocalBackup();
+        toast('تم ربط فولدر الجهاز: ' + lbState.folder);
+        return lbSaveNow(true);
+      }).catch(function (e) {
+        if (e && e.name === 'AbortError') return null;
+        lbState.mode = 'download';
+        renderLocalBackup();
+        toast('المتصفح ما بيدعمش اختيار فولدر — هننزّل نسخة JSON في التنزيلات', true);
+        return lbSaveNow(true);
+      });
+    }
+    lbState.mode = 'download';
+    renderLocalBackup();
+    return lbSaveNow(true);
+  }
+  function lbInit() {
+    try { lbState.lastAt = localStorage.getItem(LB_LAST_KEY) || ''; } catch (e) {}
+    var br = lbBridge();
+    if (br && br.info) {
+      br.info().then(function (info) {
+        if (info && info.folder) {
+          lbState.mode = 'electron';
+          lbState.folder = info.folder;
+          lbState.lastAt = info.lastAt || lbState.lastAt;
+        }
+      }).catch(function () {}).then(renderLocalBackup);
+      return;
+    }
+    if (window.showDirectoryPicker && window.indexedDB) {
+      lbIdbGet().then(function (h) {
+        if (!h) return;
+        lbState.dirHandle = h;
+        lbState.mode = 'web';
+        lbState.folder = h.name || 'فولدر الجهاز';
+      }).catch(function () {}).then(renderLocalBackup);
+      return;
+    }
+    renderLocalBackup();
+  }
+
+  try {
+    window.NizamLocalBackup = {
+      isReady: lbReady,
+      folder: function () { return lbState.folder || ''; },
+      saveNow: function () { return lbSaveNow(true); },
+      saveFile: function (name, mime, bytes) { return lbWriteBytes(name, mime, bytes); }
+    };
+  } catch (e) {}
+
+  try {
+    if (!window.__nizamLocalBackupHooked) {
+      window.__nizamLocalBackupHooked = true;
+      var __lbOrigSet = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (k, v) {
+        var res = __lbOrigSet.apply(this, arguments);
+        try {
+          if (this === window.localStorage && String(k).indexOf('app_') === 0 &&
+              String(k).indexOf('app_local_backup') !== 0) lbSchedule();
+        } catch (e) {}
+        return res;
+      };
+    }
+  } catch (e) {}
+
+  var lbPickBtn = $('#localFolderPick');
+  if (lbPickBtn) lbPickBtn.addEventListener('click', function () { lbPick(); });
+  var lbSaveBtn = $('#localFolderSave');
+  if (lbSaveBtn) lbSaveBtn.addEventListener('click', function () { lbSaveNow(true); });
+  var lbClearBtn = $('#localFolderClear');
+  if (lbClearBtn) lbClearBtn.addEventListener('click', function () {
+    var br = lbBridge();
+    var done = (br && br.clear) ? br.clear() : Promise.resolve(true);
+    done.then(function () {
+      if (lbState.dirHandle) { try { lbIdbDel().catch(function () {}); } catch (e) {} }
+      lbState.mode = '';
+      lbState.folder = '';
+      lbState.dirHandle = null;
+      lbState.lastAt = '';
+      try { localStorage.removeItem(LB_LAST_KEY); } catch (e) {}
+      renderLocalBackup();
+      toast('تم إلغاء ربط فولدر الجهاز — Google Drive زي ما هو');
+    }).catch(function () {});
+  });
+  lbInit();
+  if (typeof document !== 'undefined' && document.addEventListener) {
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') { try { lbSaveNow(false); } catch (e) {} }
+    });
   }
 
   /* ---------- أزرار ولوحة ---------- */
