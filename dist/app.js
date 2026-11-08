@@ -8150,6 +8150,7 @@
     renderStoreChips();
     renderStores();
     toast('اتضاف المخزن «' + name + '» ✓ — اختاره في نموذج الحركة');
+    try { document.dispatchEvent(new CustomEvent('nizam:stores-changed', { detail: { type: 'add', name: name } })); } catch (e) {}
     return true;
   }
 
@@ -8167,6 +8168,7 @@
     renderStoreChips();
     renderStores();
     toast('اتحذف مخزن «' + name + '» — حركاته اتنقلت لـ «' + move + '»');
+    try { document.dispatchEvent(new CustomEvent('nizam:stores-changed', { detail: { type: 'delete', name: name, target: move } })); } catch (e) {}
   }
 
   function renderStoreSummary() {
@@ -8554,6 +8556,7 @@
       toggleStorePayFields();
       updateStoreCalc();
       renderStores();
+      try { document.dispatchEvent(new CustomEvent('nizam:store-data-changed')); } catch (e) {}
       var lbl = STORE_LABEL[type] || type;
       var extra = '';
       if (paid > 0) extra = ' — واتسجّل دفع ' + money(paid) + ' للمورد';
@@ -8627,6 +8630,7 @@
         saveStores(v2);
         try { unlinkStoreFromParty(gone); } catch (e) {}
         renderStores();
+        try { document.dispatchEvent(new CustomEvent('nizam:store-data-changed')); } catch (e) {}
         toast('تم حذف حركة المخزن مع أثرها في حساب الطرف');
       }
     });
