@@ -14,6 +14,7 @@ const FILES = [
   'index.html',
   'styles.css',
   'app.js',
+  'monthly.js',
   'app-lock.js',
   'splash.js',
   'period.js',
