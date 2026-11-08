@@ -1067,3 +1067,27 @@ label.btn{cursor:pointer;user-select:none}
 .month-card.is-upcoming{opacity:.72}
 .month-card__rest{color:#fca5a5!important}
 @media (max-width:640px){.plan-kpis{grid-template-columns:1fr}}
+
+/* ===== الموظفون / المصنعية / تصنيف المخازن ===== */
+.summary--3{grid-template-columns:repeat(3,1fr)}
+.custom-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.custom-row input{flex:1;min-width:0;background:rgba(0,0,0,.28);border:1px solid var(--line);border-radius:11px;padding:10px 12px;color:var(--text);font-size:13px;outline:none;transition:.2s}
+.custom-row input:focus{border-color:rgba(79,140,255,.7);box-shadow:0 0 0 3px rgba(79,140,255,.12)}
+.custom-row .btn{flex:0 0 auto;width:34px;height:34px;padding:0;font-size:18px}
+.catalog-tree{margin-top:16px;display:flex;flex-direction:column;gap:12px}
+.catalog-cat{border:1px solid var(--line);border-radius:14px;background:var(--panel-2);overflow:hidden}
+.catalog-cat__head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.02);flex-wrap:wrap}
+.catalog-cat__head small{color:var(--muted);font-size:12px}
+.catalog-cat__empty{padding:14px;color:var(--muted);font-size:13px}
+.catalog-item{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px 14px;border-bottom:1px dashed var(--line)}
+.catalog-item:last-child{border-bottom:0}
+.catalog-item__body{min-width:0;flex:1}
+.catalog-item__title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.catalog-item__specs{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.spec-chip{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;padding:3px 8px;font-size:11px;color:var(--muted);background:rgba(255,255,255,.03)}
+.catalog-item__note{margin:7px 0 0;color:var(--muted);font-size:12px}
+.catalog-empty{padding:18px;border:1px dashed var(--line);border-radius:14px;text-align:center;color:var(--muted);font-size:13px}
+.link-btn{background:none;border:0;color:var(--primary);font:inherit;font-weight:700;cursor:pointer;padding:0;text-align:start}
+.link-btn:hover{text-decoration:underline}
+@media (max-width:900px){.summary--3{grid-template-columns:1fr 1fr}}
+@media (max-width:650px){.summary--3{grid-template-columns:1fr}}

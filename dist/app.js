@@ -35,6 +35,7 @@
     'supplier-profile': 'كشف حساب مورد',
     details: 'التفاصيل',
     stores: 'المخازن',
+    employees: 'الموظفين',
     'partner-profile': 'بروفايل شريك',
     'member-profile': 'بروفايل عضو الجمعية',
     operations: 'العمليات'
@@ -104,6 +105,22 @@
     try { localStorage.setItem(KEY_CUSTOMERS, JSON.stringify(list)); } catch (e) {}
   }
 
+  /* ---------- الموظفون ---------- */
+  var KEY_EMPLOYEES = 'app_employees';
+  function getEmployees() {
+    try {
+      var raw = localStorage.getItem(KEY_EMPLOYEES);
+      if (raw) {
+        var arr = JSON.parse(raw);
+        if (Array.isArray(arr)) return safeList(arr, []).map(function (e) {
+          if (!Array.isArray(e.transactions)) e.transactions = [];
+          return e;
+        });
+      }
+    } catch (e) {}
+    return [];
+  }
+
   /* ---------- محرك التحصيل الشهري (monthly.js) ---------- */
   var MC = (typeof createMonthlyCollection === 'function') ? createMonthlyCollection({
     getCustomers: getCustomers,
@@ -151,7 +168,8 @@
     if (id === 'collection') step(function () { renderCollection(colFilter()); renderCollectionSummary(); }, 'التحصيل');
     if (id === 'collection') step(function () { renderWaPanel(); }, 'رسائل واتساب');
     if (id === 'ledger') step(function () { renderLedger(); renderLedgerSummary(); fillPartyLists(); }, 'الدواخل والخوارج');
-    if (id === 'stores') step(function () { renderStoreChips(); renderStores(); fillStoreSuggests(); }, 'المخازن');
+    if (id === 'stores') step(function () { renderStoreChips(); renderStores(); fillStoreSuggests(); if (window.WarehouseCatalog) window.WarehouseCatalog.render(); }, 'المخازن');
+    if (id === 'employees') step(function () { if (window.EmployeesUI) window.EmployeesUI.render(); }, 'الموظفين');
     if (id === 'partners') step(function () { renderPartners(); }, 'الشركاء');
     if (id === 'associations') step(function () { renderAssociations(); }, 'الجمعيات');
     if (id === 'details') step(function () { renderDetails(); }, 'التفاصيل');
@@ -891,6 +909,10 @@
       sendSum += Number(s.total != null ? s.total : (Number(s.qty || 0) * Number(s.price || 0)));
     });
     var paidByUs = Number(c.paidByUs || 0) + led.out;
+    /* المصنعية وأجور العمال: تُخصم من رصيد المدفوع منا للعميل، ولا تُسجَّل في الخزنة. */
+    var manu = Array.isArray(c.manufacturing) ? c.manufacturing : [];
+    var manuTotal = 0;
+    manu.forEach(function (x) { manuTotal += Number(x.amount || 0); });
     /* حركات المخازن المرتبطة بالعميل: خوارج/توريد له يزيد المستحق، والمرتجع يقلله */
     var storeSends = Array.isArray(c.storeSends) ? c.storeSends : [];
     var storeCharge = 0, storeReturn = 0;
@@ -904,9 +926,10 @@
       pays: pays, paidPays: paidPays, paid: paid, rest: rest,
       n: n, unit: unit,
       sends: sends, sendSum: sendSum, paidByUs: paidByUs,
+      manu: manu, manuTotal: manuTotal,
       storeSends: storeSends, storeCharge: storeCharge, storeReturn: storeReturn,
       ledIn: led.in, ledOut: led.out, ledList: led.list,
-      sendBal: Math.max(paidByUs - sendSum, 0)
+      sendBal: Math.max(paidByUs - sendSum - manuTotal, 0)
     };
   }
 
@@ -1276,6 +1299,7 @@
       infoItem('المبلغ الإجمالي قبل خصم المقدم', money(d.total)) +
       infoItem('المبلغ المدفوع من العميل (المقدم)', money(d.down)) +
       infoItem('المبلغ المدفوع منا نحن للعميل', money(c.paidByUs)) +
+      infoItem('إجمالي المصنعية وأجور العمال', money(d.manuTotal)) +
       infoItem('المطلوب سداده بعد خصم المقدم', money(d.due)) +
       infoItem('دفعات مسجّلة عند الإضافة', money(d.later)) +
       infoItem('إجمالي التحصيل من الملف', money(d.paidPays)) +
@@ -1354,6 +1378,7 @@
     sf.elements.note.value = '';
     $('#sendError').hidden = true;
     updateSendCalc();
+    try { document.dispatchEvent(new CustomEvent('nizam:profile-rendered')); } catch (e) {}
   }
 
   function formatDate(v) {
@@ -1472,7 +1497,7 @@
     return sum;
   }
   function profileSendBal(c, d) {
-    return Math.max(Number((d && d.paidByUs) || 0) - profileSendSum(c, d), 0);
+    return Math.max(Number((d && d.paidByUs) || 0) - profileSendSum(c, d) - Number((d && d.manuTotal) || 0), 0);
   }
   var sendView = { filter: '', grouped: false };
 
@@ -3187,12 +3212,25 @@
         desc: 'مقدم مدفوع من العميل: ' + name, note: '',
         party: { type: 'customer', name: name }
       }));
-      var adv = Number(c.paidByUs || 0);
-      if (adv > 0) ops.push(Object.assign({}, base, {
-        key: 'auto:cus:' + ci + ':adv', type: 'out', amount: adv, date: c.startDate || '',
-        desc: 'مدفوع منا نحن للعميل: ' + name, note: '',
-        party: { type: 'customer', name: name }
-      }));
+      /* المبلغ المدفوع منا للعميل لا يُسجَّل تلقائيًا هنا:
+         لم يخرج نقدًا من الخزنة بعد، ويُستهلك مع الوقت بالمرسل والمصنعية. */
+    });
+    getEmployees().forEach(function (e2, ei) {
+      var en = String(e2.name || '').trim();
+      (e2.transactions || []).forEach(function (t, k) {
+        var amt = Number(t.amount || 0);
+        if (!(amt > 0)) return;
+        var isRefund = t.type === 'refund';
+        var lbl = t.type === 'salary' ? 'مرتب موظف'
+          : t.type === 'advance' ? 'سلفة موظف'
+          : t.type === 'bonus' ? 'مكافأة موظف' : 'استرداد من موظف';
+        ops.push({
+          auto: true, src: 'تلقائي', key: 'auto:emp:' + ei + ':' + k,
+          type: isRefund ? 'in' : 'out', amount: amt, date: t.date || '',
+          desc: lbl + ': ' + en, note: t.note || '',
+          party: null
+        });
+      });
     });
     getSuppliers().forEach(function (s, si) {
       var name = String(s.name || '').trim();
@@ -5311,7 +5349,9 @@
     app_members: 'أعضاء الجمعيات',
     app_wa_settings: 'رسائل التحصيل (واتساب) — الإعدادات',
     app_wa_log: 'رسائل التحصيل (واتساب) — سجل الإرسال',
-    app_default_due_day: 'التحصيل الشهري — يوم التحصيل الافتراضي'
+    app_default_due_day: 'التحصيل الشهري — يوم التحصيل الافتراضي',
+    app_employees: 'الموظفون',
+    app_store_catalog: 'تصنيف المخازن والأصناف'
   };
   var SYNC_KEYS = Object.keys(SYNC_LABELS);
   var SYNC_PUSH_MS = 60 * 60 * 1000;    /* رفع تلقائي كل ساعة */
@@ -8279,6 +8319,22 @@
         return '<option value="' + esc(nm) + '"></option>';
       }).join('');
     }
+    if (window.WarehouseCatalog) {
+      try {
+        var storeNow = $('#storePick') ? $('#storePick').value : '';
+        var storeNow2 = $('#supStorePick') ? $('#supStorePick').value : '';
+        if (it) it.innerHTML += window.WarehouseCatalog.itemOptions(storeNow);
+        if (it2) it2.innerHTML += window.WarehouseCatalog.itemOptions(storeNow2);
+        [it, it2].forEach(function (dl) {
+          if (!dl) return;
+          var seen = {};
+          Array.prototype.slice.call(dl.querySelectorAll('option')).forEach(function (op) {
+            if (seen[op.value]) { if (op.parentNode) op.parentNode.removeChild(op); }
+            else seen[op.value] = 1;
+          });
+        });
+      } catch (e) {}
+    }
     fillStoreWorkList();
     renderStoreChips();
   }
@@ -8691,6 +8747,37 @@
       try { toast('حدث خطأ غير متوقع: ' + m, true); } catch (e) {}
     });
   } catch (e) {}
+
+  /* جسر بسيط للوحدات المنفصلة (الموظفون / المصنعية / تصنيف المخازن) */
+  window.NizamApp = {
+    getCustomers: getCustomers,
+    saveCustomers: saveCustomers,
+    getCurrentCustomer: function () { return getCustomers()[currentIdx] || null; },
+    getCurrentIdx: function () { return currentIdx; },
+    deriveCustomer: derive,
+    getEmployees: getEmployees,
+    refreshProfile: function () {
+      if (currentIdx > -1) { try { renderProfile(); } catch (e) {} }
+    },
+    refreshLedger: function () {
+      try { renderLedger(); renderLedgerSummary(); } catch (e) {}
+    },
+    renderHomeStats: renderHomeStats,
+    toast: toast,
+    money: money,
+    esc: esc,
+    formatDate: formatDate,
+    todayISO: todayISO,
+    getStores: getStores,
+    saveStores: saveStores,
+    getStoreNames: getStoreNames,
+    storeItemBalance: storeItemBalance,
+    storeItems: storeItems,
+    addStore: addStore,
+    renderStores: renderStores,
+    fillStoreSuggests: fillStoreSuggests,
+    profileSendBal: function (c) { return profileSendBal(c, derive(c)); }
+  };
 
   window.syncApi = syncApi;
   window.syncApply = syncApply;
