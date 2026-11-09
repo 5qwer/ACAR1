@@ -1273,6 +1273,10 @@
       '<div class="progress"><i style="width:' + pct + '%"></i></div>' +
       '<div class="progress-label"><span>مدفوع: ' + money(d.paid) + '</span><span>متبقي: ' + money(d.rest) + '</span></div>';
 
+    /* حالة التحصيل الشهري — تفضل ظاهرة في البروفايل للمتأخر، وتتحدث بعد كل دفعة */
+    var profilePlanEl = $('#profilePlan');
+    if (profilePlanEl) profilePlanEl.innerHTML = planDetailHTML(c);
+
     /* البيانات الشخصية */
     $('#profileInfo').innerHTML =
       infoItem('اسم العميل', c.name) +
@@ -2619,9 +2623,12 @@
     }
     if (close) {
       close.addEventListener('click', closeToast);
+      /* على الموبايل ممكن الـclick يتلغي بعد لمسة/سحب؛ نقفل برضه على pointerup و touchend */
+      close.addEventListener('pointerup', closeToast);
+      close.addEventListener('touchend', closeToast);
       /* نمنع السحب/الضغط على الإشعار نفسه لما نضغط زر × */
       close.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
-      close.addEventListener('pointerup', function (e) { e.stopPropagation(); });
+      close.addEventListener('touchstart', function (e) { e.stopPropagation(); });
     }
     el.addEventListener('click', function (e) {
       if (e.target.closest('#toastClose, .toast__x')) { closeToast(e); return; }
